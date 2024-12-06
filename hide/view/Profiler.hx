@@ -195,11 +195,12 @@ class Profiler extends hide.ui.View<{}> {
 
 	function loadAll() @:privateAccess {
 		if (names.length < 1) return null;
+		var analyzer = new hlmem.Analyzer();
+		analyzer.loadBytecode(hlPath);
 		for (i in 0...names.length) {
 			var newMem = new hlmem.Memory();
 			try {
 				if (i == 0) { // setup main Memory
-					newMem.loadBytecode(hlPath);
 					currentMemory = mainMemory = newMem;
 				} else {
 					mainMemory.otherMems.push(newMem);
@@ -207,7 +208,7 @@ class Profiler extends hide.ui.View<{}> {
 				}
 
 				newMem.otherMems = [];
-				newMem.loadMemory(names[i]);
+				newMem.loadMemory(names[i], analyzer.code);
 				newMem.check();
 			} catch(e) {
 				names.remove(names[i]);
