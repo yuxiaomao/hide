@@ -307,14 +307,14 @@ class Profiler extends hide.ui.View<{}> {
 			new Element('
 			<h4>Memory usage</h4>
 			<h5>${s.memFile}</h5>
-			<div class="outer-gauge"><div class="inner-gauge" title="${hlmem.Memory.MB(s.used)} used (${ 100 * s.used / s.totalAllocated}% of total)" style="width:${ 100 * s.used / s.totalAllocated}%;"></div></div>
+			<div class="outer-gauge"><div class="inner-gauge" title="${hlmem.Analyzer.mb(s.used)} used (${ 100 * s.used / s.totalAllocated}% of total)" style="width:${ 100 * s.used / s.totalAllocated}%;"></div></div>
 			<dl>
-				<dt>Allocated</dt><dd>${hlmem.Memory.MB(s.totalAllocated)}</dd>
-				<dt>Used</dt><dd>${hlmem.Memory.MB(s.used)}</dd>
-				<dt>Free</dt><dd>${hlmem.Memory.MB(s.free)}</dd>
-				<dt>GC</dt><dd>${hlmem.Memory.MB(s.gc)}</dd>
+				<dt>Allocated</dt><dd>${hlmem.Analyzer.mb(s.totalAllocated)}</dd>
+				<dt>Used</dt><dd>${hlmem.Analyzer.mb(s.used)}</dd>
+				<dt>Free</dt><dd>${hlmem.Analyzer.mb(s.free)}</dd>
+				<dt>GC</dt><dd>${hlmem.Analyzer.mb(s.gc)}</dd>
 				<dt>&nbsp</dt><dd></dd>
-				<dt>Pages</dt><dd>${s.pagesCount} (${hlmem.Memory.MB(s.pagesSize)})</dd>
+				<dt>Pages</dt><dd>${s.pagesCount} (${hlmem.Analyzer.mb(s.pagesSize)})</dd>
 				<dt>Roots</dt><dd>${s.rootsCount}</dd>
 				<dt>Stacks</dt><dd>${s.stackCount}</dd>
 				<dt>Types</dt><dd>${s.typesCount}</dd>
@@ -472,7 +472,7 @@ class ProfilerElement extends hide.comp.Component{
 		var count = path == null ? line.count : path.total.count;
 		var mem = path == null ? line.size : path.total.mem;
 
-		this.element = new Element('<tr tabindex="2"><td><div class="folder icon ico ico-caret-right"></div>${count}</td><td>${hlmem.Memory.MB(mem)}</td><td title="${name}">${name}</td><td><div title="Allocated ${mem} (${100 * mem / Reflect.getProperty(profiler.statsObj[0], "totalAllocated")}% of total)" class="outer-gauge"><div class="inner-gauge" style="width:${100 * mem / Reflect.getProperty(profiler.statsObj[0], "totalAllocated")}%;"></div></div></td></tr>');
+		this.element = new Element('<tr tabindex="2"><td><div class="folder icon ico ico-caret-right"></div>${count}</td><td>${hlmem.Analyzer.mb(mem)}</td><td title="${name}">${name}</td><td><div title="Allocated ${mem} (${100 * mem / Reflect.getProperty(profiler.statsObj[0], "totalAllocated")}% of total)" class="outer-gauge"><div class="inner-gauge" style="width:${100 * mem / Reflect.getProperty(profiler.statsObj[0], "totalAllocated")}%;"></div></div></td></tr>');
 		this.element.find('td').first().css({'padding-left':'${10 * depth}px'});
 
 		this.foldBtn = this.element.find('.folder');
