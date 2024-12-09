@@ -28,6 +28,7 @@ enum Filter {
 
 class Profiler extends hide.ui.View<{}> {
 	#if (hashlink >= "1.15.0")
+	public var analyzer : hlmem.Analyzer = null;
 	public var mainMemory : hlmem.Memory = null;
 	public var currentMemory : hlmem.Memory = null;
 	public var names(default, null) : Array<String> = [];
@@ -195,29 +196,21 @@ class Profiler extends hide.ui.View<{}> {
 
 	function loadAll() @:privateAccess {
 		if (names.length < 1) return null;
-		var analyzer = new hlmem.Analyzer();
+		analyzer = new hlmem.Analyzer();
 		analyzer.loadBytecode(hlPath);
 		for (i in 0...names.length) {
 			var newMem = new hlmem.Memory();
 			try {
-				if (i == 0) { // setup main Memory
-					currentMemory = mainMemory = newMem;
-				} else {
-					mainMemory.otherMems.push(newMem);
-					newMem.code = mainMemory.code;
-				}
-
-				newMem.otherMems = [];
-				newMem.loadMemory(names[i], analyzer.code);
-				newMem.check();
+				analyzer.loadMemoryDump(names[i]);
+				analyzer.check();
 			} catch(e) {
 				names.remove(names[i]);
 				if (names.length < 1)
 					mainMemory = currentMemory = null;
-
 				return e.toString();
 			}
 		}
+		currentMemory = mainMemory = analyzer.mem;
 
 		mainMemory.setFilterMode(None);
 		for (mem in mainMemory.otherMems)
