@@ -42,7 +42,7 @@ class Profiler extends hide.ui.View<{}> {
 	var dumpPaths : Array<String> = [];
 
 	// Cached values
-	var statsObj : Array<Dynamic> = [];
+	public var statsObj : Array<Dynamic> = [];
 	var fileSelects : Array<hide.comp.FileSelect> = [];
 
 	public function new( ?state ) {
@@ -185,7 +185,7 @@ class Profiler extends hide.ui.View<{}> {
 		names = dumpPaths;
 
 		var result = loadAll();
-		if ( result != null) {
+		if ( result != null ) {
 			Ide.inst.quickError(result);
 		} else {
 			if (names.length > 0) {
@@ -196,7 +196,7 @@ class Profiler extends hide.ui.View<{}> {
 		}
 	}
 
-	function loadAll() @:privateAccess {
+	function loadAll() {
 		if (names.length < 1) return null;
 		analyzer = new hlmem.Analyzer();
 		analyzer.loadBytecode(hlPath);
@@ -227,7 +227,7 @@ class Profiler extends hide.ui.View<{}> {
 		statsObj = null;
 	}
 
-	public function displayTypes(sort : SortType = ByCount, asc : Bool = true) @:privateAccess{
+	public function displayTypes(sort : SortType = ByCount, asc : Bool = true) {
 		if (currentMemory == null) throw "memory not loaded";
 
 		lines = [];
@@ -244,12 +244,12 @@ class Profiler extends hide.ui.View<{}> {
 	}
 
 	public function getNameString(tid : Array<Int>) {
-		var path = hlmem.Memory.BlockStats.getPathStrings(mainMemory, tid);
+		var path = hlmem.Memory.BlockStats.getPathStrings(mainMemory, tid, false);
 		return path[path.length-1];
 	}
 
 	public function getPathString(tid : Array<Int>) {
-		return hlmem.Memory.BlockStats.getPathStrings(currentMemory, tid).join(" > ");
+		return hlmem.Memory.BlockStats.getPathStrings(currentMemory, tid, false).join(" > ");
 	}
 
 	public function refresh() {
@@ -358,11 +358,11 @@ class Profiler extends hide.ui.View<{}> {
 		}
 	}
 
-	public function locate(str : String) @:privateAccess {
+	public function locate(str : String) {
 		var datas = [];
 		if (str == "null" || locationData.exists(str)) return;
 
-		var ctx = @:privateAccess currentMemory.locate(str, 30);
+		var ctx = currentMemory.locate(str, 30);
 		ctx.sort();
 		for (i in ctx.allT)
 			datas.push({count : i.count, size : i.mem, tid : i.tl, name : null, state: Unique});
@@ -405,7 +405,7 @@ class Profiler extends hide.ui.View<{}> {
 		refreshHierarchicalView();
 	}
 
-	public function filterDatas(filter: Filter) @:privateAccess{
+	public function filterDatas(filter: Filter) {
 		this.currentFilter = filter;
 
 		switch (currentFilter) {
@@ -436,7 +436,7 @@ class Profiler extends hide.ui.View<{}> {
 	static var _ = hide.ui.View.register(Profiler);
 }
 
-class ProfilerElement extends hide.comp.Component{
+class ProfilerElement extends hide.comp.Component {
 	#if (hashlink >= "1.15.0")
 	public var profiler : Profiler;
 	public var line : LineData;
@@ -449,7 +449,7 @@ class ProfilerElement extends hide.comp.Component{
 	var foldBtn : Element;
 	var children : Array<ProfilerElement> = null;
 
-	public function new(profiler : Profiler, line: LineData, path : Path, parent : ProfilerElement = null) @:privateAccess {
+	public function new(profiler : Profiler, line: LineData, path : Path, parent : ProfilerElement = null) {
         super(null, null);
 
 		this.profiler = profiler;
@@ -458,7 +458,7 @@ class ProfilerElement extends hide.comp.Component{
 		this.parent = parent;
 		this.depth = parent != null ? parent.depth + 1 : 0;
 
-		var name = path == null ? line.name : hlmem.Memory.BlockStats.getTypeString(profiler.currentMemory, path.v);
+		var name = path == null ? line.name : hlmem.Memory.BlockStats.getTypeString(profiler.currentMemory, path.v, false);
 		var count = path == null ? line.count : path.total.count;
 		var mem = path == null ? line.size : path.total.mem;
 
@@ -541,6 +541,7 @@ class ProfilerElement extends hide.comp.Component{
 		if (children == null && parent == null) {
 			var d = profiler.locationData.get(line.name);
 			if (d == null) {
+				// TODO: use id to locate, and restore id display
 				profiler.locate(line.name);
 				d = profiler.locationData.get(line.name);
 			}
