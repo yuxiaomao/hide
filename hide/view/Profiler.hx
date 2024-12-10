@@ -189,7 +189,7 @@ class Profiler extends hide.ui.View<{}> {
 			if (names.length > 0) {
 				this.currentFilter = None;
 				displayTypes(sort, sortOrderAscending);
-				statsObj = mainMemory?.getStats();
+				statsObj = analyzer.getStats();
 			}
 		}
 	}
@@ -212,9 +212,8 @@ class Profiler extends hide.ui.View<{}> {
 		}
 		currentMemory = mainMemory = analyzer.mem;
 
-		mainMemory.setFilterMode(None);
-		for (mem in mainMemory.otherMems)
-			mem.setFilterMode(None);
+		hlmem.Analyzer.filterMode = None;
+		analyzer.buildFilteredBlocks();
 
 		return null;
 	}
@@ -409,34 +408,23 @@ class Profiler extends hide.ui.View<{}> {
 
 		switch (currentFilter) {
 			case None :
-				currentMemory = mainMemory;
-				mainMemory.setFilterMode(None);
+				hlmem.Analyzer.filterMode = None;
 			case Unique :
-				currentMemory = mainMemory;
-				mainMemory.setFilterMode(Unique);
+				hlmem.Analyzer.filterMode = Unique;
 			case Difference :
-				mainMemory.setFilterMode(None);
-				if (mainMemory.otherMems.length > 0){
-					var other = mainMemory.otherMems[0];
-					other.otherMems = [mainMemory];
-					other.setFilterMode(Unique);
-					other.otherMems = [];
-					currentMemory = other;
-				}
+				analyzer.nextDump();
+				hlmem.Analyzer.filterMode = Unique;
 			case Intersected :
-				var other = mainMemory.otherMems[0];
-				other.setFilterMode(None);
-				currentMemory = mainMemory;
-				mainMemory.setFilterMode(Intersect);
-			default:
-				currentMemory = mainMemory;
-				mainMemory.setFilterMode(None);
+				hlmem.Analyzer.filterMode = Intersect;
+			case mode:
+				trace("Unknown filter mode " + mode);
 		}
+		analyzer.buildFilteredBlocks();
 
 		locationData.clear();
 
 		displayTypes(sort, sortOrderAscending);
-		statsObj = mainMemory?.getStats();
+		statsObj = analyzer.getStats();
 
 		refreshHierarchicalView();
 	}
