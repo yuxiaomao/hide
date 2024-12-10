@@ -189,7 +189,7 @@ class Profiler extends hide.ui.View<{}> {
 			if (names.length > 0) {
 				this.currentFilter = None;
 				displayTypes(sort, sortOrderAscending);
-				statsObj = analyzer.getStats();
+				statsObj = analyzer.getMemStats();
 			}
 		}
 	}
@@ -230,7 +230,7 @@ class Profiler extends hide.ui.View<{}> {
 
 		lines = [];
 
-		var ctx = new hlmem.Memory.Stats(currentMemory);
+		var ctx = new hlmem.Memory.BlockStats(currentMemory);
 		for ( b in currentMemory.filteredBlocks)
 			ctx.add(b.type, b.size);
 
@@ -242,12 +242,12 @@ class Profiler extends hide.ui.View<{}> {
 	}
 
 	public function getNameString(tid : Array<Int>) {
-		var path = hlmem.Memory.Stats.getPathStrings(mainMemory, tid);
+		var path = hlmem.Memory.BlockStats.getPathStrings(mainMemory, tid);
 		return path[path.length-1];
 	}
 
 	public function getPathString(tid : Array<Int>) {
-		return hlmem.Memory.Stats.getPathStrings(currentMemory, tid).join(" > ");
+		return hlmem.Memory.BlockStats.getPathStrings(currentMemory, tid).join(" > ");
 	}
 
 	public function refresh() {
@@ -424,7 +424,7 @@ class Profiler extends hide.ui.View<{}> {
 		locationData.clear();
 
 		displayTypes(sort, sortOrderAscending);
-		statsObj = analyzer.getStats();
+		statsObj = analyzer.getMemStats();
 
 		refreshHierarchicalView();
 	}
@@ -456,7 +456,7 @@ class ProfilerElement extends hide.comp.Component{
 		this.parent = parent;
 		this.depth = parent != null ? parent.depth + 1 : 0;
 
-		var name = path == null ? line.name : hlmem.Memory.Stats.getTypeString(profiler.currentMemory, path.v);
+		var name = path == null ? line.name : hlmem.Memory.BlockStats.getTypeString(profiler.currentMemory, path.v);
 		var count = path == null ? line.count : path.total.count;
 		var mem = path == null ? line.size : path.total.mem;
 
