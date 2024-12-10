@@ -75,6 +75,8 @@ class Profiler extends hide.ui.View<{}> {
 		</div>'
 		).appendTo(element);
 
+		hlmem.Analyzer.useColor = false;
+
 		var hlSelect = new hide.comp.FileSelect(["hl"], null, element.find(".hl-fileselect"));
 		hlSelect.onChange = function() { hlPath = Ide.inst.getPath(hlSelect.path); };
 
