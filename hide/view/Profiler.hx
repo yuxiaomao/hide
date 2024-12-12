@@ -232,14 +232,11 @@ class Profiler extends hide.ui.View<{}> {
 
 		lines = [];
 
-		var ctx = new hlmem.Memory.BlockStats(currentMemory);
-		for ( b in currentMemory.filteredBlocks)
-			ctx.add(b.type, b.size);
-
+		var ctx = currentMemory.getBlockStatsByType();
 		ctx.sort(sort == ByCount, asc);
 
 		for (i in ctx.allT){
-			lines.push({count : i.count, size : i.mem, tid : i.tl, name : getNameString(i.tl)});
+			lines.push({count : i.count, size : i.size, tid : i.tl, name : getNameString(i.tl)});
 		}
 	}
 
@@ -365,7 +362,7 @@ class Profiler extends hide.ui.View<{}> {
 		var ctx = currentMemory.locate(str, 30);
 		ctx.sort();
 		for (i in ctx.allT)
-			datas.push({count : i.count, size : i.mem, tid : i.tl, name : null, state: Unique});
+			datas.push({count : i.count, size : i.size, tid : i.tl, name : null, state: Unique});
 
 		locationData.set(str, datas);
 	}
