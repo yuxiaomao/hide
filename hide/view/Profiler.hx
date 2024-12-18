@@ -211,10 +211,10 @@ class Profiler extends hide.ui.View<{}> {
 				return e.toString();
 			}
 		}
-		currentMemory = mainMemory = analyzer.mem;
+		currentMemory = mainMemory = analyzer.getMainMemory();
 
-		hlmem.Analyzer.filterMode = None;
-		analyzer.buildFilteredBlocks();
+		mainMemory.filterMode = None;
+		mainMemory.buildFilteredBlocks();
 
 		return null;
 	}
@@ -240,7 +240,7 @@ class Profiler extends hide.ui.View<{}> {
 	}
 
 	public function getNameString(tid : Array<Int>) {
-		var path = mainMemory.getPathStrings(tid, false);
+		var path = currentMemory.getPathStrings(tid, false);
 		return path[path.length-1];
 	}
 
@@ -406,18 +406,18 @@ class Profiler extends hide.ui.View<{}> {
 
 		switch (currentFilter) {
 			case None :
-				hlmem.Analyzer.filterMode = None;
+				currentMemory.filterMode = None;
 			case Unique :
-				hlmem.Analyzer.filterMode = Unique;
+				currentMemory.filterMode = Unique;
 			case Difference :
-				analyzer.nextDump();
-				hlmem.Analyzer.filterMode = Unique;
+				currentMemory = analyzer.nextDump();
+				currentMemory.filterMode = Unique;
 			case Intersected :
-				hlmem.Analyzer.filterMode = Intersect;
+				currentMemory.filterMode = Intersect;
 			case mode:
 				trace("Unknown filter mode " + mode);
 		}
-		analyzer.buildFilteredBlocks();
+		currentMemory.buildFilteredBlocks();
 
 		locationData.clear();
 
