@@ -201,7 +201,6 @@ class Profiler extends hide.ui.View<{}> {
 		analyzer = new hlmem.Analyzer();
 		analyzer.loadBytecode(hlPath);
 		for (i in 0...names.length) {
-			var newMem = new hlmem.Memory();
 			try {
 				analyzer.loadMemoryDump(names[i]);
 				analyzer.check();
@@ -241,12 +240,12 @@ class Profiler extends hide.ui.View<{}> {
 	}
 
 	public function getNameString(tid : Array<Int>) {
-		var path = hlmem.Memory.BlockStats.getPathStrings(mainMemory, tid, false);
+		var path = mainMemory.getPathStrings(tid, false);
 		return path[path.length-1];
 	}
 
 	public function getPathString(tid : Array<Int>) {
-		return hlmem.Memory.BlockStats.getPathStrings(currentMemory, tid, false).join(" > ");
+		return currentMemory.getPathStrings(tid, false).join(" > ");
 	}
 
 	public function refresh() {
@@ -455,7 +454,7 @@ class ProfilerElement extends hide.comp.Component {
 		this.parent = parent;
 		this.depth = parent != null ? parent.depth + 1 : 0;
 
-		var name = path == null ? line.name : hlmem.Memory.BlockStats.getTypeString(profiler.currentMemory, path.v, false);
+		var name = path == null ? line.name : profiler.currentMemory.getTypeString(path.v, false);
 		var count = path == null ? line.count : path.total.count;
 		var mem = path == null ? line.size : path.total.mem;
 
