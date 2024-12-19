@@ -1,58 +1,27 @@
 package hide.view;
 
-typedef LineData = {
-	count : Int,
-	size : Int,
-	tid : Array<Int>,
-	name : String,
-}
-
-typedef Path = {
-	v: Int,
-	children: Array<Path>,
-	line: LineData,
-	total : {count: Int, mem: Int},
-};
-
-enum SortType {
-	ByMemory;
-	ByCount;
-}
-
-enum Filter {
-	None;
-	Unique;			// Blocks only present in current memory
-	Difference;		// Blocks only present in other memory
-	Intersected; 	// Blocks present in both memories
-}
-
 class Profiler extends hide.ui.View<{}> {
 	#if (hashlink >= "1.15.0")
 	public var analyzer : hlmem.Analyzer = null;
-	public var mainMemory : hlmem.Memory = null;
-	public var currentMemory : hlmem.Memory = null;
-	public var names(default, null) : Array<String> = [];
-	public var lines(default, null) : Array<LineData> = [];
-	public var locationData(default, null) : Map<String, Array<LineData>> = [];
-
-	var sort : SortType = ByCount;
-	var sortOrderAscending = true;
-	var currentFilter : Filter = None;
 	var hlPath = "";
 	var dumpPaths : Array<String> = [];
 
 	// Cached values
-	public var statsObj : Array<Dynamic> = [];
-	var fileSelects : Array<hide.comp.FileSelect> = [];
+	var sumMemStats : hlmem.Result.MemStats = null;
+	var sumTypeStateByCount : hlmem.Result.BlockStats = null;
+	var sumTypeStateBySize : hlmem.Result.BlockStats = null;
 
 	public function new( ?state ) {
 		super(state);
+		trace("new"); // TODO remove
 	}
 
 	override function onDisplay() {
+		trace("onDisplay"); // TODO remove
 		new Element('
 		<div class="profiler">
-			<div class="left-panel"></div>
+			<div class="left-panel">
+			</div>
 			<div class="right-panel">
 				<div class="title">Files input</div>
 				<div class="files-input">
@@ -75,11 +44,10 @@ class Profiler extends hide.ui.View<{}> {
 		</div>'
 		).appendTo(element);
 
-		hlmem.Analyzer.useColor = false;
-
 		var hlSelect = new hide.comp.FileSelect(["hl"], null, element.find(".hl-fileselect"));
 		hlSelect.onChange = function() { hlPath = Ide.inst.getPath(hlSelect.path); };
 
+		var fileSelects : Array<hide.comp.FileSelect> = [];
 		for (el in element.find(".dump-fileselect")) {
 			var dumpSelect = new hide.comp.FileSelect(["dump"], null, new Element(el));
 			fileSelects.push(dumpSelect);
@@ -173,132 +141,56 @@ class Profiler extends hide.ui.View<{}> {
 			load();
 			refresh();
 		});
+	}
 
-		refreshFilters();
+	override function onBeforeClose():Bool {
+		trace("onBeforeClose"); // TODO remove
+		return super.onBeforeClose();
 	}
 
 	override function getTitle() {
 		return "Memory profiler";
 	}
 
-	function load() {
-		names = dumpPaths;
-
-		var result = loadAll();
-		if ( result != null ) {
-			Ide.inst.quickError(result);
-		} else {
-			if (names.length > 0) {
-				this.currentFilter = None;
-				displayTypes(sort, sortOrderAscending);
-				statsObj = analyzer.getMemStats();
-			}
-		}
-	}
-
-	function loadAll() {
-		if (names.length < 1) return null;
-		analyzer = new hlmem.Analyzer();
-		analyzer.loadBytecode(hlPath);
-		for (i in 0...names.length) {
-			try {
-				analyzer.loadMemoryDump(names[i]);
-				analyzer.check();
-			} catch(e) {
-				names.remove(names[i]);
-				if (names.length < 1)
-					mainMemory = currentMemory = null;
-				return e.toString();
-			}
-		}
-		currentMemory = mainMemory = analyzer.getMainMemory();
-
-		mainMemory.filterMode = None;
-		mainMemory.buildFilteredBlocks();
-
-		return null;
-	}
-
 	function clear() {
-		mainMemory = currentMemory = null;
-		lines = [];
-		locationData.clear();
-		statsObj = null;
+		trace("clear"); // TODO remove
+		analyzer = null;
 	}
 
-	public function displayTypes(sort : SortType = ByCount, asc : Bool = true) {
-		if (currentMemory == null) throw "memory not loaded";
-
-		lines = [];
-
-		var ctx = currentMemory.getBlockStatsByType();
-		ctx.sort(sort == ByCount, asc);
-
-		for (i in ctx.allT){
-			lines.push({count : i.count, size : i.size, tid : i.tl, name : getNameString(i.tl)});
-		}
-	}
-
-	public function getNameString(tid : Array<Int>) {
-		var path = currentMemory.getPathStrings(tid, false);
-		return path[path.length-1];
-	}
-
-	public function getPathString(tid : Array<Int>) {
-		return currentMemory.getPathStrings(tid, false).join(" > ");
-	}
-
-	public function refresh() {
-		refreshStats();
-		refreshFilters();
-		refreshHierarchicalView();
-	}
-
-	public function refreshFilters() {
-		var filters = element.find('.filters');
-		filters.empty();
-
-		var fileNames = [];
-		for (p in dumpPaths) {
-			var arr = p.split('/');
-			fileNames.push(arr[arr.length - 1]);
-		}
-
-		new Element('
-			<div class="title">Filters</div>
-			<dt>Filter</dt><dd>
-				<select class="dd-filters">
-					<option value="0">None</option>
-					<option value="1">Show ${fileNames[0]}</option>
-					<option value="2">Show ${fileNames[1]}</option>
-					<option value="3">Intersected</option>
-				</select>
-			</dd>
-		').appendTo(filters);
-
-		var ddFilters = filters.find('.dd-filters');
-		ddFilters.on('change', function(e) {
-			var enumVal = Filter.None;
-			var val : Int = Std.parseInt(ddFilters.val());
-			switch (val) {
-				case 0: enumVal = Filter.None;
-				case 1: enumVal = Filter.Unique;
-				case 2: enumVal = Filter.Difference;
-				case 3: enumVal = Filter.Intersected;
+	function load() {
+		try {
+			hlmem.Analyzer.useColor = false;
+			analyzer = new hlmem.Analyzer();
+			analyzer.loadBytecode(hlPath);
+			for (i in 0...dumpPaths.length) {
+				analyzer.loadMemoryDump(dumpPaths[i]);
 			}
-
-			this.filterDatas(enumVal);
-		});
-
-		if (dumpPaths.length >= 2)
-			filters.css({ display:'block' });
-		else
-			filters.css({ display:'none' });
+			analyzer.check();
+			computeSummary();
+		} catch(e) {
+			Ide.inst.quickError(e);
+			analyzer = null;
+		}
 	}
 
-	public function refreshStats() {
-		element.find('.stats').remove();
+	function computeSummary() {
+		var mainMemory = analyzer.getMainMemory();
+		sumMemStats = mainMemory.getMemStats();
+		var tmpStats = mainMemory.getBlockStatsByType();
+		tmpStats.sort(true, false);
+		sumTypeStateByCount = tmpStats.slice(0, 10);
+		tmpStats.sort(false, false);
+		sumTypeStateBySize = tmpStats.slice(0, 10);
+	}
 
+	function refresh() {
+		refreshStats();
+		refreshSummaryView();
+	}
+
+	function refreshStats() {
+		element.find('.stats').remove();
+		var statsObj = analyzer != null ? analyzer.getMemStats() : [];
 		var stats = new Element ('<div class="stats"><div class="title">Stats</div></div>').appendTo(element.find('.right-panel'));
 		for (idx => s in statsObj) {
 			new Element('
@@ -323,108 +215,12 @@ class Profiler extends hide.ui.View<{}> {
 		}
 	}
 
-	public function refreshHierarchicalView() {
+	function refreshSummaryView() {
 		element.find('table').parent().remove();
-		var tab = new Element('
-		<div class="hide-scroll">
-			<table rules=none>
-				<thead>
-					<td class="sort-count">Count<div ${sort.match(SortType.ByCount) ? 'class="icon ico ico-caret-${sortOrderAscending ? 'up' : 'down'}"' : ''}></div></td>
-					<td class="sort-size">Size<div ${sort.match(SortType.ByMemory) ? 'class="icon ico ico-caret-${sortOrderAscending ? 'up' : 'down'}"' : ''}></div></td>
-					<td>Name</td>
-					<td class="sort-size">% Impact<div ${sort.match(SortType.ByMemory) ? 'class="icon ico ico-caret-${sortOrderAscending ? 'up' : 'down'}"' : ''}></div></td>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
-		</div>'
-		).appendTo(element.find(".left-panel"));
-
-		tab.find('.sort-count').on('click', function(e) { sortDatas(SortType.ByCount, sort.match(SortType.ByCount) ? !sortOrderAscending : false); });
-		tab.find('.sort-size').on('click', function(e) { sortDatas(SortType.ByMemory, sort.match(SortType.ByMemory) ? !sortOrderAscending : false); });
-		tab.on('keydown', function(e) e.preventDefault());
-
-		var body = tab.find('tbody');
-		for (idx => l in lines) {
-			var pe = new ProfilerElement(this, l, null, null);
-			pe.element.appendTo(body);
-
-			if (idx == 0)
-				pe.element.focus();
-		}
-	}
-
-	public function locate(str : String) {
-		var datas = [];
-		if (str == "null" || locationData.exists(str)) return;
-
-		var ctx = currentMemory.locate(str, 30);
-		ctx.sort();
-		for (i in ctx.allT)
-			datas.push({count : i.count, size : i.size, tid : i.tl, name : null, state: Unique});
-
-		locationData.set(str, datas);
-	}
-
-	public function getChildren(depth : Int, parent : Int, valid : Array<LineData>) : Array<Path> {
-		var valid = valid.filter(p ->  {
-			var isCurrentPath = depth <= 0 || p.tid[depth-1] == parent;
-			return p.tid.length > depth && isCurrentPath;
-		});
-
-		var children : Array<Dynamic> = [];
-		for (path in valid) {
-			if (parent == -1 || path.tid[depth - 1] == parent) {
-				var copy = children.filter((c) -> c.p == path.tid[depth]);
-				if (copy.length == 0) {
-					children.push({p : path.tid[depth],
-						count : path.count, size : path.size,
-						line : depth == path.tid.length - 1 ? path : null});
-				} else {
-					copy[0].count += path.count;
-					copy[0].size += path.size;
-				}
-			}
-		}
-
-		children.sort((a, b) -> b.count - a.count);
-		return children.map(c -> {v : c.p, children : getChildren(depth+1, c.p, valid), line : c.line, total : {count : c.count, mem : c.size}});
-	}
-
-	public function sortDatas(sort: SortType, isAscending : Bool) {
-		this.sort = sort;
-		this.sortOrderAscending = isAscending;
-
-		if (mainMemory == null) return;
-
-		displayTypes(sort, isAscending);
-		refreshHierarchicalView();
-	}
-
-	public function filterDatas(filter: Filter) {
-		this.currentFilter = filter;
-
-		switch (currentFilter) {
-			case None :
-				currentMemory.filterMode = None;
-			case Unique :
-				currentMemory.filterMode = Unique;
-			case Difference :
-				currentMemory = analyzer.nextDump();
-				currentMemory.filterMode = Unique;
-			case Intersected :
-				currentMemory.filterMode = Intersect;
-			case mode:
-				trace("Unknown filter mode " + mode);
-		}
-		currentMemory.buildFilteredBlocks();
-
-		locationData.clear();
-
-		displayTypes(sort, sortOrderAscending);
-		statsObj = analyzer.getMemStats();
-
-		refreshHierarchicalView();
+		var tabCount = new ProfilerTable(this, "Type with most count", sumTypeStateByCount, 10);
+		tabCount.element.appendTo(element.find(".left-panel"));
+		var tabSize = new ProfilerTable(this, "Type with most size", sumTypeStateBySize, 10);
+		tabSize.element.appendTo(element.find(".left-panel"));
 	}
 
 	#end
@@ -432,141 +228,49 @@ class Profiler extends hide.ui.View<{}> {
 	static var _ = hide.ui.View.register(Profiler);
 }
 
-class ProfilerElement extends hide.comp.Component {
-	#if (hashlink >= "1.15.0")
-	public var profiler : Profiler;
-	public var line : LineData;
-	public var path : Path;
-	public var parent : ProfilerElement;
-	public var depth : Int = 0;
-	public var isOpen = false;
+#if (hashlink >= "1.15.0")
+class ProfilerTable extends hide.comp.Component {
+	var profiler : Profiler;
+	var title : String;
+	var data : hlmem.Result.BlockStats;
+	var maxLine : Int;
 
-	// Cached values
-	var foldBtn : Element;
-	var children : Array<ProfilerElement> = null;
-
-	public function new(profiler : Profiler, line: LineData, path : Path, parent : ProfilerElement = null) {
-        super(null, null);
-
+	public function new(profiler : Profiler, title : String, data : hlmem.Result.BlockStats, maxLine : Int) {
+		super(null, null);
 		this.profiler = profiler;
-		this.line = line;
-		this.path = path;
-		this.parent = parent;
-		this.depth = parent != null ? parent.depth + 1 : 0;
-
-		var name = path == null ? line.name : profiler.currentMemory.getTypeString(path.v, false);
-		var count = path == null ? line.count : path.total.count;
-		var mem = path == null ? line.size : path.total.mem;
-
-		this.element = new Element('<tr tabindex="2"><td><div class="folder icon ico ico-caret-right"></div>${count}</td><td>${hlmem.Analyzer.mb(mem)}</td><td title="${name}">${name}</td><td><div title="Allocated ${mem} (${100 * mem / Reflect.getProperty(profiler.statsObj[0], "totalAllocated")}% of total)" class="outer-gauge"><div class="inner-gauge" style="width:${100 * mem / Reflect.getProperty(profiler.statsObj[0], "totalAllocated")}%;"></div></div></td></tr>');
-		this.element.find('td').first().css({'padding-left':'${10 * depth}px'});
-
-		this.foldBtn = this.element.find('.folder');
-
-		// Build children profiler
-		if (this.path != null) {
-			for (p in this.path.children??[]) {
-				if (children == null)
-					children = [];
-
-				var pe = new ProfilerElement(this.profiler, null, p, this);
-
-				if (pe.children == null) {
-					pe.foldBtn.css({ opacity : 0 });
-					pe.foldBtn.off();
-				}
-
-				children.push(pe);
+		this.title = title;
+		this.data = data;
+		this.maxLine = maxLine < data.allT.length ? maxLine : data.allT.length;
+		element = new Element('
+		<h4>${title}</h4>
+		<div class="hide-scroll">
+			<table rules=none>
+				<thead>
+					<td class="sort-count">Count</td>
+					<td class="sort-size">Size</td>
+					<td>Name</td>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>'
+		);
+		var body = element.find('tbody');
+		if (data != null) {
+			for ( i in 0...this.maxLine ) {
+				var l = data.allT[i];
+				var name = l.getName();
+				var child = new Element('
+				<tr tabindex="2">
+					<td><div class="folder icon ico ico-caret-right"></div>${l.count}</td>
+					<td>${hlmem.Analyzer.mb(l.size)}</td>
+					<td title="${name}">${name}</td>
+				</tr>'
+				);
+				child.appendTo(body);
 			}
-		}
-
-		// Manage line folding / unfolding to show / unshow details
-		foldBtn.on('click', function(e) {
-			if (!isOpen) {
-				this.open();
-			}
-			else {
-				this.close();
-			}
-		});
-
-		this.element.on('keydown', function(e) {
-
-			function selectUp() {
-				if (this.element.prev('tr').length > 0)
-					this.element.prev('tr').first().focus();
-				else
-					this.element.parent('tr').focus();
-			}
-
-			function selectDown() {
-				if (this.element.children('tr').length > 0)
-					this.element.children('tr').first().focus();
-				else
-					this.element.next('tr').focus();
-			}
-
-			switch( e.keyCode ) {
-				case hxd.Key.LEFT:
-					if (this.isOpen)
-						this.close();
-				case hxd.Key.RIGHT:
-					if (this.isOpen) {
-						selectDown();
-					}
-					else {
-						open();
-					}
-				case hxd.Key.DOWN:
-					selectDown();
-				case hxd.Key.UP:
-					selectUp();
-				default:
-			}
-
-			e.stopPropagation();
-			e.preventDefault();
-		});
-    }
-
-	public function open() {
-		this.isOpen = true;
-		this.foldBtn.removeClass('ico-caret-right').addClass('ico-caret-down');
-
-		// Only root nodes without children will generate their children
-		if (children == null && parent == null) {
-			var d = profiler.locationData.get(line.name);
-			if (d == null) {
-				// TODO: use id to locate, and restore id display
-				profiler.locate(line.name);
-				d = profiler.locationData.get(line.name);
-			}
-
-			var pathData = profiler.getChildren(depth, path != null ? path.v : -1, d);
-
-			if (this.children == null)
-				this.children = [];
-
-			for (p in pathData) {
-				var pe = new ProfilerElement(this.profiler, null, p, this);
-				this.children.push(pe);
-				pe.element.insertAfter(this.element);
-			}
-		}
-
-		for (c in children??[]) {
-			c.element.insertAfter(this.element);
 		}
 	}
-
-	public function close() {
-		this.isOpen = false;
-		this.foldBtn.removeClass('ico-caret-down').addClass('ico-caret-right');
-
-		for (c in children??[]) {
-			c.close();
-			c.element.detach();
-		}
-	}
-	#end
 }
+
+#end
