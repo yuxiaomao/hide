@@ -3210,6 +3210,20 @@ div.gradient-box {
   width: 100%;
   flex-grow: 1;
 }
+.profiler .left-panel .title {
+  margin-bottom: 2px;
+  margin-top: 10px;
+}
+.profiler .left-panel .tab {
+  height: 100%;
+  width: 100%;
+}
+.profiler .left-panel .tab .tab-content {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
 .profiler .left-panel table {
   overflow-y: scroll;
 }

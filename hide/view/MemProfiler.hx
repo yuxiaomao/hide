@@ -6,6 +6,11 @@ class MemProfiler extends hide.ui.View<{}> {
 	var hlPath = "";
 	var dumpPaths : Array<String> = [];
 
+	var statsView : Element;
+	var tabsView : Element;
+	var summaryView : MemProfilerSummaryView;
+	var inspectView : MemProfilerInspectView;
+
 	public function new( ?state ) {
 		super(state);
 		trace("new"); // TODO remove
@@ -128,7 +133,7 @@ class MemProfiler extends hide.ui.View<{}> {
 		});
 
 		var processBtn = element.find("#process-btn");
-		processBtn.on('click', function() {
+		processBtn.on('click', function(e) {
 			if( hlPath == null || hlPath == '' || dumpPaths == null || dumpPaths.length <= 0 ) {
 				Ide.inst.quickMessage('.hl or/and .dump files are missing. Please provide both files before hit the process button');
 				return;
@@ -144,6 +149,7 @@ class MemProfiler extends hide.ui.View<{}> {
 
 	override function onBeforeClose():Bool {
 		trace("onBeforeClose"); // TODO remove
+		clear();
 		return super.onBeforeClose();
 	}
 
@@ -159,6 +165,10 @@ class MemProfiler extends hide.ui.View<{}> {
 	function clear() {
 		trace("clear"); // TODO remove
 		analyzer = null;
+		statsView = null;
+		tabsView = null;
+		summaryView = null;
+		inspectView = null;
 	}
 
 	function load( onDone : Bool -> Void ) {
@@ -192,7 +202,6 @@ class MemProfiler extends hide.ui.View<{}> {
 		refreshTabsView();
 	}
 
-	var statsView : Element;
 	function refreshStats() {
 		if( statsView != null )
 			statsView.remove();
@@ -221,9 +230,6 @@ class MemProfiler extends hide.ui.View<{}> {
 		}
 	}
 
-	var tabsView : Element;
-	var summaryView : MemProfilerSummaryView;
-	var inspectView : MemProfilerInspectView;
 	function refreshTabsView() {
 		if( tabsView != null )
 			tabsView.remove();
@@ -232,20 +238,24 @@ class MemProfiler extends hide.ui.View<{}> {
 			<div class="tab-header"></div>
 			<div class="tab-content"></div>
 		</div>
-		');
-		var summaryBtn = new Element('
-			<button class="tablinks">Summary</button>
-		').appendTo(tabsView.find(".tab-header"));
-		summaryBtn.on('click', () -> openSummaryTab());
-		var inspectBtn = new Element('
-			<button class="tablinks">Inspect</button>
-		').appendTo(tabsView.find(".tab-header"));
-		inspectBtn.on('click', () -> openInspectTab());
+		').appendTo(element.find(".left-panel"));
+		var header = tabsView.find(".tab-header");
+		var summaryBtn = new Element('<button class="tablinks">Summary</button>').appendTo(header);
+		summaryBtn.on('click', (e) -> openSummaryTab());
+		var inspectBtn = new Element('<button class="tablinks">Inspect</button>').appendTo(header);
+		inspectBtn.on('click', (e) -> openInspectTab());
+		var searchBar = new Element('<div style="display: inline"></div>').appendTo(header);
+		var searchInput = new Element('<input type="text" placeholder="Search..">').appendTo(searchBar);
+		var searchBtn = new Element('<button type="submit"><i class="ico ico-search"></i></button>').appendTo(searchBar);
+		searchInput.keydown((e) -> if (e.key == 'Enter' || e.keyCode == 13) searchBtn.click());
+		searchBtn.on('click', function(e) {
+			openInspectTab(searchInput.val());
+		});
+		var content = tabsView.find(".tab-content");
 		summaryView = new MemProfilerSummaryView(this);
-		summaryView.element.appendTo(tabsView.find(".tab-content"));
+		summaryView.element.appendTo(content);
 		inspectView = new MemProfilerInspectView(this);
-		inspectView.element.appendTo(tabsView.find(".tab-content"));
-		tabsView.appendTo(element.find(".left-panel"));
+		inspectView.element.appendTo(content);
 	}
 
 	public function openSummaryTab() {
@@ -253,10 +263,10 @@ class MemProfiler extends hide.ui.View<{}> {
 		summaryView.element.toggle(true);
 	}
 
-	public function openInspectTab( ?tid : Int ) {
+	public function openInspectTab( ?tstr : String ) {
 		summaryView.element.toggle(false);
 		inspectView.element.toggle(true);
-		inspectView.open(tid);
+		inspectView.open(tstr);
 	}
 
 	#end
@@ -273,9 +283,10 @@ class MemProfilerSummaryView extends hide.comp.Component {
 		super(null, null);
 		this.profiler = profiler;
 		computeSummary();
-		var tabCount = new MemProfilerTable(profiler, "Type with most count", sumTypeStateByCount, 10);
+		element = new Element('<div class="hide-scroll"></div>');
+		var tabCount = new MemProfilerTable(profiler, "Top 10 type on count", sumTypeStateByCount, 0);
 		tabCount.element.appendTo(element);
-		var tabSize = new MemProfilerTable(profiler, "Type with most size", sumTypeStateBySize, 10);
+		var tabSize = new MemProfilerTable(profiler, "Top 10 type on size", sumTypeStateBySize, 0);
 		tabSize.element.appendTo(element);
 	}
 	function computeSummary() {
@@ -291,41 +302,46 @@ class MemProfilerSummaryView extends hide.comp.Component {
 class MemProfilerInspectView extends hide.comp.Component {
 	var profiler : MemProfiler;
 	var ttype : hlmem.TType;
+	var ttypeName : String;
 	var locateRootBtn : Element;
 	var locateRootTable : MemProfilerTable;
+	var searchBar : Element;
 	var locateTable : MemProfilerTable;
 	var parentsTable : MemProfilerTable;
 	var subsTable : MemProfilerTable;
 	public function new( profiler : MemProfiler ) {
 		super(null, null);
 		this.profiler = profiler;
+		element = new Element('<div class="hide-scroll"></div>');
 	}
-	public function open( ?tid : Int ) {
-		if( tid == null ) return;
+	public function open( ?tstr : String ) {
+		if( tstr == null || tstr.length <= 0 ) return;
 		var mainMemory = profiler.analyzer.getMainMemory();
-		ttype = mainMemory.getTypeById(tid);
-		if( ttype == null ) return;
-		element.html('<div></div>');
+		ttype = mainMemory.resolveType(tstr);
+		element.empty();
+		if( ttype == null ) {
+			new Element('<div><p>Cannot open type ${tstr}</p></div>').appendTo(element);
+			return;
+		}
+		ttypeName = ttype.toString() + "#" + ttype.tid;
+		var data = mainMemory.locate(ttype);
+		locateTable = new MemProfilerTable(profiler, "Locate " + ttypeName, data, 10);
+		locateTable.element.appendTo(element);
+		var data = mainMemory.parents(ttype);
+		parentsTable = new MemProfilerTable(profiler, "Parents " + ttypeName, data, 5);
+		parentsTable.element.appendTo(element);
+		var data = mainMemory.subs(ttype);
+		subsTable = new MemProfilerTable(profiler, "Subs " + ttypeName, data, 5);
+		subsTable.element.appendTo(element);
 		locateRootTable = null;
 		locateRootBtn = new Element('<button>Locate Root</button>').appendTo(element);
 		locateRootBtn.on('click', function(e) {
 			if( locateRootTable != null ) return;
+			locateRootBtn.remove();
 			var data = mainMemory.locate(ttype, 10);
-			locateRootTable = new MemProfilerTable(profiler, "Locate 10 " + ttype.toString(), data, 10);
+			locateRootTable = new MemProfilerTable(profiler, "Locate 10 " + ttypeName, data, 10);
 			locateRootTable.element.appendTo(element);
 		});
-
-		var data = mainMemory.locate(ttype);
-		locateTable = new MemProfilerTable(profiler, "Locate " + ttype.toString(), data, 10);
-		locateTable.element.appendTo(element);
-
-		var data = mainMemory.parents(ttype);
-		parentsTable = new MemProfilerTable(profiler, "Parents " + ttype.toString(), data, 5);
-		parentsTable.element.appendTo(element);
-
-		var data = mainMemory.subs(ttype);
-		subsTable = new MemProfilerTable(profiler, "Subs " + ttype.toString(), data, 5);
-		subsTable.element.appendTo(element);
 	}
 }
 
@@ -333,34 +349,50 @@ class MemProfilerTable extends hide.comp.Component {
 	var profiler : MemProfiler;
 	var title : String;
 	var data : hlmem.Result.BlockStats;
-	var maxLine : Int;
+	var currentLine : Int;
+	var expandBtn : Element;
 	public function new( profiler : MemProfiler, title : String, data : hlmem.Result.BlockStats, maxLine : Int ) {
 		super(null, null);
 		this.profiler = profiler;
 		this.title = title;
 		this.data = data;
-		this.maxLine = maxLine < data.allT.length ? maxLine : data.allT.length;
+		this.currentLine = 0;
 		element = new Element('
-		<h4>${title}</h4>
-		<div class="hide-scroll">
-			<table rules=none>
-				<thead>
-					<td class="sort-count">Count</td>
-					<td class="sort-size">Size</td>
-					<td>Name</td>
-				</thead>
-				<tbody>
-				</tbody>
-			</table>
-		</div>'
+		<div class="title">${title}</div>
+		<table rules=none>
+			<thead>
+				<td class="sort-count">Count</td>
+				<td class="sort-size">Size</td>
+				<td>Name</td>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>'
 		);
+		var size = (maxLine > 0 && maxLine < data.allT.length) ? maxLine : data.allT.length;
+		expand(size);
+	}
+
+	public function expand( size : Int ) {
+		if( expandBtn != null )
+			expandBtn.remove();
+		var delta = data.allT.length - currentLine;
+		if( delta <= 0 || size <= 0 )
+			return;
+		if( size < delta )
+			delta = size;
+		var maxLine = currentLine + delta;
 		var body = element.find('tbody');
-		if( data != null ) {
-			for ( i in 0...this.maxLine ) {
-				var l = data.allT[i];
-				var child = new MemProfilerTableLine(profiler, l);
-				child.element.appendTo(body);
-			}
+		for ( i in currentLine...maxLine ) {
+			var l = data.allT[i];
+			var child = new MemProfilerTableLine(profiler, l);
+			child.element.appendTo(body);
+		}
+		currentLine = maxLine;
+		var delta = data.allT.length - currentLine;
+		if( delta > 0 ) {
+			expandBtn = new Element('<button>Expand</button>').appendTo(body);
+			expandBtn.on('click', (e) -> expand(5));
 		}
 	}
 }
@@ -384,12 +416,10 @@ class MemProfilerTableLine extends hide.comp.Component {
 		</tr>'
 		);
 		var btn = element.find('.locate');
-		btn.on('click', function(e) {
-			this.locate();
-		});
+		btn.on('click', (e) -> locate());
 	}
 	public function locate() {
-		profiler.openInspectTab(data.tl[0]);
+		profiler.openInspectTab("#" + data.tl[0]);
 	}
 }
 
