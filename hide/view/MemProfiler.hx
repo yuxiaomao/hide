@@ -234,15 +234,15 @@ class MemProfiler extends hide.ui.View<{}> {
 		if( tabsView != null )
 			tabsView.remove();
 		tabsView = new Element('
-		<div class="tab">
-			<div class="tab-header"></div>
+		<div class="hide-tabs">
+			<div class="tabs-header"></div>
 			<div class="tab-content"></div>
 		</div>
 		').appendTo(element.find(".left-panel"));
-		var header = tabsView.find(".tab-header");
-		var summaryBtn = new Element('<button class="tablinks">Summary</button>').appendTo(header);
+		var header = tabsView.find(".tabs-header");
+		var summaryBtn = new Element('<div name="summary" class="active">Summary</button>').appendTo(header);
 		summaryBtn.on('click', (e) -> openSummaryTab());
-		var inspectBtn = new Element('<button class="tablinks">Inspect</button>').appendTo(header);
+		var inspectBtn = new Element('<div name="inspect">Inspect</button>').appendTo(header);
 		inspectBtn.on('click', (e) -> openInspectTab());
 		var searchBar = new Element('<div style="display: inline"></div>').appendTo(header);
 		var searchInput = new Element('<input type="text" placeholder="Search..">').appendTo(searchBar);
@@ -259,11 +259,17 @@ class MemProfiler extends hide.ui.View<{}> {
 	}
 
 	public function openSummaryTab() {
+		var header = tabsView.find(".tabs-header");
+		header.find("[name=inspect]").removeClass("active");
+		header.find("[name=summary]").addClass("active");
 		inspectView.element.toggle(false);
 		summaryView.element.toggle(true);
 	}
 
 	public function openInspectTab( ?tstr : String ) {
+		var header = tabsView.find(".tabs-header");
+		header.find("[name=summary]").removeClass("active");
+		header.find("[name=inspect]").addClass("active");
 		summaryView.element.toggle(false);
 		inspectView.element.toggle(true);
 		inspectView.open(tstr);
@@ -407,12 +413,12 @@ class MemProfilerTableLine extends hide.comp.Component {
 		var name = el.getName();
 		element = new Element('
 		<tr tabindex="2">
-			<td>
-				<div class="locate icon ico ico-map-marker"></div>
-				${el.count}
-			</td>
+			<td>${el.count}</td>
 			<td>${hlmem.Analyzer.mb(el.size)}</td>
-			<td title="${name}">${name}</td>
+			<td title="${name}">
+				<div class="locate icon ico ico-map-marker"></div>
+				${name}
+			</td>
 		</tr>'
 		);
 		var btn = element.find('.locate');

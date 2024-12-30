@@ -3709,25 +3709,24 @@ div.gradient-box {
 		background-color: #303030;
 		flex-direction: column;
 
-		.tree-map {
-			background-color: #4c00ff;
-			width: 100%;
-			flex-grow: 1;
-		}
-
 		.title {
 			margin-bottom: 2px;
 			margin-top: 10px;
 		}
 
-		.tab {
+		.hide-tabs {
 			height: 100%;
 			width: 100%;
 			.tab-content {
-				height:100%;
-				width:100%;
-				display:flex;
-				flex-direction:column;
+				height: 100%;
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				padding-bottom: 25px;
+				box-sizing: border-box;
+				.hide-scroll {
+					overflow-x: hidden;
+				}
 			}
 		}
 
@@ -3772,34 +3771,13 @@ div.gradient-box {
 				overflow: hidden;
 				white-space: nowrap;
 
-				.folder {
+				.locate {
 					cursor: pointer;
-					margin-right: 10px;
+					margin-right: 5px;
 					margin-left: 5px;
 					font-size: 12pt;
 					text-align: center;
 					vertical-align: text-top;
-				}
-
-				.outer-gauge {
-					background-color: #535353;
-					width: 100%;
-					height: 15px;
-				}
-
-				.inner-gauge {
-					background-color: #d6d6d6;
-					height: 15px;
-				}
-
-				.icon {
-					padding-left:10px;
-				}
-			}
-
-			.inspect-row {
-				td {
-					width: 100px;
 				}
 			}
 		}
@@ -3809,6 +3787,7 @@ div.gradient-box {
 		height: 100%;
 		width: 20%;
 		padding: 10px;
+		box-sizing: border-box;
 
 		dl {
 			overflow-x: hidden;
@@ -3825,9 +3804,8 @@ div.gradient-box {
 			font-weight: normal;
 			vertical-align: middle;
 			display: inline-block;
-			text-wrap: wrap;
-			word-break: break-word;
 			margin-top: 4px;
+			max-width: 100%;
 		}
 
 		dd {
@@ -3839,6 +3817,12 @@ div.gradient-box {
 			text-wrap: wrap;
 			word-break: break-word;
 			margin-top: 4px;
+			max-width: 100%;
+		}
+
+		input {
+			width: 100%;
+			box-sizing: border-box;
 		}
 
 		.outer-gauge {
@@ -3858,6 +3842,7 @@ div.gradient-box {
 
 		h5 {
 			margin-top:2px;
+			word-wrap: break-word;
 		}
 
 		hr {

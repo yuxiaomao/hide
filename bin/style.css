@@ -3205,24 +3205,24 @@ div.gradient-box {
   background-color: #303030;
   flex-direction: column;
 }
-.profiler .left-panel .tree-map {
-  background-color: #4c00ff;
-  width: 100%;
-  flex-grow: 1;
-}
 .profiler .left-panel .title {
   margin-bottom: 2px;
   margin-top: 10px;
 }
-.profiler .left-panel .tab {
+.profiler .left-panel .hide-tabs {
   height: 100%;
   width: 100%;
 }
-.profiler .left-panel .tab .tab-content {
+.profiler .left-panel .hide-tabs .tab-content {
   height: 100%;
   width: 100%;
   display: flex;
   flex-direction: column;
+  padding-bottom: 25px;
+  box-sizing: border-box;
+}
+.profiler .left-panel .hide-tabs .tab-content .hide-scroll {
+  overflow-x: hidden;
 }
 .profiler .left-panel table {
   overflow-y: scroll;
@@ -3257,33 +3257,19 @@ div.gradient-box {
   overflow: hidden;
   white-space: nowrap;
 }
-.profiler .left-panel table td .folder {
+.profiler .left-panel table td .locate {
   cursor: pointer;
-  margin-right: 10px;
+  margin-right: 5px;
   margin-left: 5px;
   font-size: 12pt;
   text-align: center;
   vertical-align: text-top;
 }
-.profiler .left-panel table td .outer-gauge {
-  background-color: #535353;
-  width: 100%;
-  height: 15px;
-}
-.profiler .left-panel table td .inner-gauge {
-  background-color: #d6d6d6;
-  height: 15px;
-}
-.profiler .left-panel table td .icon {
-  padding-left: 10px;
-}
-.profiler .left-panel table .inspect-row td {
-  width: 100px;
-}
 .profiler .right-panel {
   height: 100%;
   width: 20%;
   padding: 10px;
+  box-sizing: border-box;
 }
 .profiler .right-panel dl {
   overflow-x: hidden;
@@ -3299,9 +3285,8 @@ div.gradient-box {
   font-weight: normal;
   vertical-align: middle;
   display: inline-block;
-  text-wrap: wrap;
-  word-break: break-word;
   margin-top: 4px;
+  max-width: 100%;
 }
 .profiler .right-panel dd {
   position: relative;
@@ -3312,6 +3297,11 @@ div.gradient-box {
   text-wrap: wrap;
   word-break: break-word;
   margin-top: 4px;
+  max-width: 100%;
+}
+.profiler .right-panel input {
+  width: 100%;
+  box-sizing: border-box;
 }
 .profiler .right-panel .outer-gauge {
   background-color: #535353;
@@ -3328,6 +3318,7 @@ div.gradient-box {
 }
 .profiler .right-panel h5 {
   margin-top: 2px;
+  word-wrap: break-word;
 }
 .profiler .right-panel hr {
   margin-top: 25px;
