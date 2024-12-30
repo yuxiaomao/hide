@@ -235,6 +235,7 @@ class MemProfiler extends hide.ui.View<{}> {
 			tabsView.remove();
 		tabsView = new Element('
 		<div class="hide-tabs">
+			<div id="search-bar"></div>
 			<div class="tabs-header"></div>
 			<div class="tab-content"></div>
 		</div>
@@ -244,9 +245,9 @@ class MemProfiler extends hide.ui.View<{}> {
 		summaryBtn.on('click', (e) -> openSummaryTab());
 		var inspectBtn = new Element('<div name="inspect">Inspect</button>').appendTo(header);
 		inspectBtn.on('click', (e) -> openInspectTab());
-		var searchBar = new Element('<div style="display: inline"></div>').appendTo(header);
+		var searchBar = tabsView.find("#search-bar");
 		var searchInput = new Element('<input type="text" placeholder="Search..">').appendTo(searchBar);
-		var searchBtn = new Element('<button type="submit"><i class="ico ico-search"></i></button>').appendTo(searchBar);
+		var searchBtn = new Element('<i class="ico ico-search"></i>').appendTo(searchBar);
 		searchInput.keydown((e) -> if (e.key == 'Enter' || e.keyCode == 13) searchBtn.click());
 		searchBtn.on('click', function(e) {
 			openInspectTab(searchInput.val());
@@ -340,7 +341,7 @@ class MemProfilerInspectView extends hide.comp.Component {
 		subsTable = new MemProfilerTable(profiler, "Subs " + ttypeName, data, 5);
 		subsTable.element.appendTo(element);
 		locateRootTable = null;
-		locateRootBtn = new Element('<button>Locate Root</button>').appendTo(element);
+		locateRootBtn = new Element('<input type="button" value="Locate Root"/>').appendTo(element);
 		locateRootBtn.on('click', function(e) {
 			if( locateRootTable != null ) return;
 			locateRootBtn.remove();
@@ -397,7 +398,7 @@ class MemProfilerTable extends hide.comp.Component {
 		currentLine = maxLine;
 		var delta = data.allT.length - currentLine;
 		if( delta > 0 ) {
-			expandBtn = new Element('<button>Expand</button>').appendTo(body);
+			expandBtn = new Element('<input type="button" value="Expand"/>').appendTo(body);
 			expandBtn.on('click', (e) -> expand(5));
 		}
 	}
