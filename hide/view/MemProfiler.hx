@@ -307,6 +307,10 @@ class MemProfiler extends hide.ui.View<{}> {
 		summaryView.element.toggle(true);
 	}
 
+	public function getTypeStat( ttype : hlmem.TType ) {
+		return summaryView.typeStats.get(ttype);
+	}
+
 	public function openInspectTab( ?tstr : String ) {
 		var header = tabsView.find(".tabs-header");
 		header.find("[name=summary]").removeClass("active");
@@ -324,25 +328,24 @@ class MemProfiler extends hide.ui.View<{}> {
 #if (hashlink >= "1.15.0")
 class MemProfilerSummaryView extends hide.comp.Component {
 	var profiler : MemProfiler;
-	var sumTypeStateByCount : hlmem.Result.BlockStats = null;
-	var sumTypeStateBySize : hlmem.Result.BlockStats = null;
+	public var typeStats : hlmem.Result.BlockStats = null;
 	public function new( profiler : MemProfiler ) {
 		super(null, null);
 		this.profiler = profiler;
-		computeSummary();
 		element = new Element('<div class="hide-scroll"></div>');
+		var mainMemory = profiler.analyzer.getMainMemory();
+		typeStats = mainMemory.getBlockStatsByType();
+		typeStats.sort(true, false);
+		var sumTypeStateByCount = typeStats.slice(0, 10);
 		var tabCount = new MemProfilerTable(profiler, "Top 10 type on count", sumTypeStateByCount, 0);
 		tabCount.element.appendTo(element);
+		typeStats.sort(false, false);
+		var sumTypeStateBySize = typeStats.slice(0, 10);
 		var tabSize = new MemProfilerTable(profiler, "Top 10 type on size", sumTypeStateBySize, 0);
 		tabSize.element.appendTo(element);
-	}
-	function computeSummary() {
-		var mainMemory = profiler.analyzer.getMainMemory();
-		var tmpStats = mainMemory.getBlockStatsByType();
-		tmpStats.sort(true, false);
-		sumTypeStateByCount = tmpStats.slice(0, 10);
-		tmpStats.sort(false, false);
-		sumTypeStateBySize = tmpStats.slice(0, 10);
+		var sumUnknown = mainMemory.getUnknown();
+		var tabUnknown = new MemProfilerTable(profiler, "Unknown blocks", sumUnknown, 0);
+		tabUnknown.element.appendTo(element);
 	}
 }
 
@@ -371,14 +374,22 @@ class MemProfilerInspectView extends hide.comp.Component {
 			return;
 		}
 		ttypeName = ttype.toString() + "#" + ttype.tid;
+		new Element('<p>Type: ${StringTools.htmlEscape(ttypeName)}</p>').appendTo(element);
+		var ttypeStat = profiler.getTypeStat(ttype);
+		if( ttypeStat != null ) {
+			new Element('
+				<p>Blocks count: ${ttypeStat.count}</p>
+				<p>Blocks size: ${ttypeStat.size}</p>
+			').appendTo(element);
+		}
 		var data = mainMemory.locate(ttype);
-		locateTable = new MemProfilerTable(profiler, "Locate " + ttypeName, data, 10);
+		locateTable = new MemProfilerTable(profiler, "Locate", data, 10);
 		locateTable.element.appendTo(element);
 		var data = mainMemory.parents(ttype);
-		parentsTable = new MemProfilerTable(profiler, "Parents " + ttypeName, data, 5);
+		parentsTable = new MemProfilerTable(profiler, "Parents", data, 5);
 		parentsTable.element.appendTo(element);
 		var data = mainMemory.subs(ttype);
-		subsTable = new MemProfilerTable(profiler, "Subs " + ttypeName, data, 5);
+		subsTable = new MemProfilerTable(profiler, "Subs", data, 5);
 		subsTable.element.appendTo(element);
 		locateRootTable = null;
 		locateRootBtn = new Element('<input type="button" value="Locate Root"/>').appendTo(element);
@@ -386,7 +397,7 @@ class MemProfilerInspectView extends hide.comp.Component {
 			if( locateRootTable != null ) return;
 			locateRootBtn.remove();
 			var data = mainMemory.locate(ttype, 10);
-			locateRootTable = new MemProfilerTable(profiler, "Locate 10 " + ttypeName, data, 10);
+			locateRootTable = new MemProfilerTable(profiler, "Locate 10", data, 10);
 			locateRootTable.element.appendTo(element);
 		});
 	}
@@ -405,8 +416,8 @@ class MemProfilerTable extends hide.comp.Component {
 		this.data = data;
 		this.currentLine = 0;
 		element = new Element('
-		<div class="title">${title}</div>
 		<table rules=none>
+			<caption>${title} (${data.allT.length})</caption>
 			<thead>
 				<td class="sort-count">Count</td>
 				<td class="sort-size">Size</td>
@@ -452,11 +463,12 @@ class MemProfilerTableLine extends hide.comp.Component {
 		this.profiler = profiler;
 		this.data = el;
 		var name = el.getName();
+		var title = name.length > 200 ? el.getName(false) : name;
 		element = new Element('
 		<tr tabindex="2">
 			<td>${el.count}</td>
 			<td>${hlmem.Analyzer.mb(el.size)}</td>
-			<td title="${name}">
+			<td title="${title}">
 				<div class="locate icon ico ico-map-marker"></div>
 				${StringTools.htmlEscape(name)}
 			</td>
