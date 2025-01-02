@@ -5,6 +5,7 @@ class MemProfiler extends hide.ui.View<{}> {
 	public var analyzer : hlmem.Analyzer = null;
 	var hlPath = "";
 	var dumpPaths : Array<String> = [];
+	var currentFilter : hlmem.Memory.FilterMode = None;
 
 	var statsView : Element;
 	var tabsView : Element;
@@ -32,15 +33,24 @@ class MemProfiler extends hide.ui.View<{}> {
 					<div class="inputs">
 						<dl>
 							<dt>HL file</dt><dd><input class="hl-fileselect" type="fileselect" extensions="hl"/></dd>
-							<dt>Dump files</dt><dd><input class="dump-fileselect" type="fileselect" extension="dump"/></dd>
-							<dt></dt><dd><input class="dump-fileselect" type="fileselect" extension="dump"/></dd>
+							<dt>Dump files</dt><dd>
+								<input class="dump-fileselect" type="fileselect" extension="dump"/>
+								<input class="dump-fileselect" type="fileselect" extension="dump"/>
+							</dd>
 						</dl>
 						<input type="button" value="Process Files" id="process-btn"/>
 					</div>
 				</div>
 				<div class="info">
 				</div>
-				<div class="filters">
+				<div class="options">
+					<dt>Filter</dt><dd>
+						<select id="mem-filter">
+							<option value="0">None</option>
+							<option value="1">Unique</option>
+							<option value="2">Intersected</option>
+						</select>
+					</dd>
 				</div>
 			</div>
 		</div>'
@@ -145,6 +155,20 @@ class MemProfiler extends hide.ui.View<{}> {
 					refresh();
 			});
 		});
+
+		var filterOpt = element.find("#mem-filter");
+		filterOpt.on('change', function(e) {
+			var val : Int = Std.parseInt(filterOpt.val());
+			var enumVal : hlmem.Memory.FilterMode = switch (val) {
+				case 0: None;
+				case 1: Unique;
+				case 2: Intersect;
+				case _:
+					trace("Unknown filter mode " + val);
+					None;
+			}
+			this.onFilterChange(enumVal);
+		});
 	}
 
 	override function onBeforeClose():Bool {
@@ -155,6 +179,19 @@ class MemProfiler extends hide.ui.View<{}> {
 
 	override function getTitle() {
 		return "Memory profiler";
+	}
+
+	function onFilterChange( f : hlmem.Memory.FilterMode ) {
+		if( currentFilter == f )
+			return;
+		currentFilter = f;
+		if( analyzer == null || analyzer.getMainMemory() == null )
+			return;
+		var mainMemory = analyzer.getMainMemory();
+		mainMemory.filterMode = currentFilter;
+		mainMemory.buildFilteredBlocks();
+		refresh();
+		showInfo("Filter set to " + f.getName());
 	}
 
 	function showInfo( msg : String ) {
@@ -183,7 +220,7 @@ class MemProfiler extends hide.ui.View<{}> {
 				}
 				showInfo("Memory dump loaded, building hierarchy...");
 				haxe.Timer.delay(() -> {
-					analyzer.check();
+					analyzer.check(currentFilter);
 					showInfo("Hierarchy built.");
 					haxe.Timer.delay(() -> {
 						onDone(true);
@@ -224,6 +261,7 @@ class MemProfiler extends hide.ui.View<{}> {
 				<dt>Types</dt><dd>${s.typesCount}</dd>
 				<dt>Closures</dt><dd>${s.closuresCount}</dd>
 				<dt>Live blocks</dt><dd>${s.blockCount}</dd>
+				<dt>Filtered blocks</dt><dd>${s.filteredBlockCount}</dd>
 			</dl>
 			${idx < statsObj.length - 1 ? '<hr class="solid"></hr>' : ''}
 			').appendTo(statsView);
