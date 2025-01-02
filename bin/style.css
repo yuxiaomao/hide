@@ -3327,10 +3327,6 @@ div.gradient-box {
   margin-top: 2px;
   word-wrap: break-word;
 }
-.profiler .right-panel hr {
-  margin-top: 25px;
-  border-top: 1px, solid, #666666;
-}
 .profiler .right-panel .title {
   text-align: center;
   font-size: 9pt;

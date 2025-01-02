@@ -23,7 +23,7 @@ class MemProfiler extends hide.ui.View<{}> {
 		<div class="profiler">
 			<div class="left-panel">
 			</div>
-			<div class="right-panel">
+			<div class="right-panel hide-scroll">
 				<div class="title">Files input</div>
 				<div class="files-input">
 					<div class="drop-zone hidden">
@@ -202,7 +202,11 @@ class MemProfiler extends hide.ui.View<{}> {
 	function clear() {
 		trace("clear"); // TODO remove
 		analyzer = null;
+		if( statsView != null )
+			statsView.remove();
 		statsView = null;
+		if( tabsView != null )
+			tabsView.remove();
 		tabsView = null;
 		summaryView = null;
 		inspectView = null;
@@ -254,7 +258,6 @@ class MemProfiler extends hide.ui.View<{}> {
 				<dt>Used</dt><dd>${hlmem.Analyzer.mb(s.used)}</dd>
 				<dt>Free</dt><dd>${hlmem.Analyzer.mb(s.free)}</dd>
 				<dt>GC</dt><dd>${hlmem.Analyzer.mb(s.gc)}</dd>
-				<dt>&nbsp</dt><dd></dd>
 				<dt>Pages</dt><dd>${s.pagesCount} (${hlmem.Analyzer.mb(s.pagesSize)})</dd>
 				<dt>Roots</dt><dd>${s.rootsCount}</dd>
 				<dt>Stacks</dt><dd>${s.stackCount}</dd>
@@ -263,7 +266,6 @@ class MemProfiler extends hide.ui.View<{}> {
 				<dt>Live blocks</dt><dd>${s.blockCount}</dd>
 				<dt>Filtered blocks</dt><dd>${s.filteredBlockCount}</dd>
 			</dl>
-			${idx < statsObj.length - 1 ? '<hr class="solid"></hr>' : ''}
 			').appendTo(statsView);
 		}
 	}
@@ -456,7 +458,7 @@ class MemProfilerTableLine extends hide.comp.Component {
 			<td>${hlmem.Analyzer.mb(el.size)}</td>
 			<td title="${name}">
 				<div class="locate icon ico ico-map-marker"></div>
-				${name}
+				${StringTools.htmlEscape(name)}
 			</td>
 		</tr>'
 		);
