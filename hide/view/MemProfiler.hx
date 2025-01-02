@@ -220,7 +220,7 @@ class MemProfiler extends hide.ui.View<{}> {
 				}
 				showInfo("Memory dump loaded, building hierarchy...");
 				haxe.Timer.delay(() -> {
-					analyzer.check(currentFilter);
+					analyzer.build(currentFilter);
 					showInfo("Hierarchy built.");
 					haxe.Timer.delay(() -> {
 						onDone(true);
