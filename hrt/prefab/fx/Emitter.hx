@@ -275,13 +275,6 @@ class ParticleInstance {
 		var sy = scaleY;
 		var sz = scaleZ;
 
-		if (emitter.particleScaling == None && emitter.simulationSpace == Local) {
-			var invScale = inline emitter.parent.getAbsPos().getScale();
-			sx = sx/invScale.x;
-			sy = sy/invScale.y;
-			sz = sz/invScale.z;
-		}
-
 		absPos._11 *= sx;
 		absPos._12 *= sx;
 		absPos._13 *= sx;
@@ -539,7 +532,7 @@ class EmitterObject extends h3d.scene.Object {
 	public var particleScaling : ParticleScaling = Parent;
 	public var emitType : EmitType = Infinity;
 	public var burstCount : Int = 1;
-	public var burstParticleCount : Int = 5;
+	public var burstParticleCount : Value;
 	public var burstDelay : Float = 1.0;
 	public var emitDuration : Float = 1.0;
 	public var emitRate : Value;
@@ -556,7 +549,7 @@ class EmitterObject extends h3d.scene.Object {
 	public var followRotation = false;
 	// EMIT SHAPE
 	public var emitShape : EmitShape = Cylinder;
-	public var emitAngle : Float = 0.0;
+	public var emitAngle : Value;
 	public var emitRad1 : Float = 1.0;
 	public var emitRad2 : Float = 1.0;
 	public var emitSurface : Bool = false;
@@ -628,8 +621,6 @@ class EmitterObject extends h3d.scene.Object {
 	}
 
 	function init(randSlots: Int, prefab: Emitter) {
-		reset();
-
 		this.emitterPrefab = prefab;
 		this.randSlots = randSlots;
 
@@ -743,14 +734,30 @@ class EmitterObject extends h3d.scene.Object {
 
 		}
 
+		// Dispose previous particles
+		if(particles != null) {
+			for(i in 0...particlesCount) {
+				particles[i].clear();
+			}
+		}
+
 		particles = #if (hl_ver >= version("1.14.0")) hl.CArray.alloc(ParticleInstance, maxCount) #else [for(i in 0...maxCount) new ParticleInstance()] #end;
 		particlesCount = maxCount;
 		randomValues = [for(i in 0...(maxCount * randSlots)) 0];
 		evaluator = new Evaluator(randomValues, randSlots);
 
-		for (i in 0...particlesCount) {
-			particles[i].idx = ParticleInstance.REMOVED_IDX;
+		{
+			var p = parent;
+			while (p != null && Std.downcast(p, hrt.prefab.fx.FX.FXAnimation) == null) {
+				p = p.parent;
+			}
+			if (p != null) {
+				var fx : hrt.prefab.fx.FX.FXAnimation = cast p;
+				@:privateAccess evaluator.parameters = fx.evaluator.parameters;
+			}
 		}
+
+		reset();
 	}
 
 	override function onRemove() {
@@ -952,7 +959,7 @@ class EmitterObject extends h3d.scene.Object {
 					case Cylinder:
 						var z = random.rand();
 						var dx = 0.0, dy = 0.0;
-						var shapeAngle = hxd.Math.degToRad(emitAngle) / 2.0;
+						var shapeAngle = hxd.Math.degToRad(evaluator.getFloat(emitAngle, curTime)) / 2.0;
 						var a = random.srand(shapeAngle);
 						if(emitSurface) {
 							dx = Math.cos(a)*(emitRad2*z + emitRad1*(1.0-z));
@@ -980,7 +987,7 @@ class EmitterObject extends h3d.scene.Object {
 					case Cone:
 						tmpOffset.set(0, 0, 0);
 						var theta = random.rand() * Math.PI * 2;
-						var shapeAngle = hxd.Math.degToRad(emitAngle) / 2.0;
+						var shapeAngle = hxd.Math.degToRad(evaluator.getFloat(emitAngle, curTime)) / 2.0;
 						var phi = shapeAngle * random.rand();
 						tmpDir.x = Math.cos(phi) * scaleX;
 						tmpDir.y = Math.sin(phi) * Math.sin(theta) * scaleY;
@@ -1003,6 +1010,11 @@ class EmitterObject extends h3d.scene.Object {
 							tmpMat2.load(parent.getAbsPos());
 							tmpMat2.invert();
 							tmpMat.multiply(tmpMat, tmpMat2);
+							if (particleScaling == None) {
+								// Re-introduce parent scaling in the spawn position calculations
+								var parentScale = inline parent.getAbsPos().getScale();
+								tmpMat.prependScale(parentScale.x, parentScale.y, parentScale.z);
+							}
 						}
 
 						tmpOffset.transform(tmpMat);
@@ -1029,12 +1041,7 @@ class EmitterObject extends h3d.scene.Object {
 						tmpQuat.toMatrix(tmpMat2);
 						part.emitOrientation.load(tmpMat2);
 
-						if (particleScaling == None) {
-							var invScale = inline parent.getAbsPos().getScale();
-							part.setScale(worldScale.x/invScale.x, worldScale.y/invScale.y, worldScale.z/invScale.z);
-						} else {
-							part.setScale(worldScale.x, worldScale.y, worldScale.z);
-						}
+						part.setScale(worldScale.x, worldScale.y, worldScale.z);
 				}
 				var frameCount = frameCount == 0 ? frameDivisionX * frameDivisionY : frameCount;
 				if(animationLoop)
@@ -1121,7 +1128,12 @@ class EmitterObject extends h3d.scene.Object {
 			return;
 
 		if( parent != null ) {
-			worldScale.load(parent.getAbsPos().getScale());
+			if (particleScaling == None) {
+				worldScale.set(1.0,1.0,1.0);
+			}
+			else {
+				worldScale.load(parent.getAbsPos().getScale());
+			}
 			invTransform.load(parent.getInvPos());
 		}
 
@@ -1175,7 +1187,7 @@ class EmitterObject extends h3d.scene.Object {
 						var nextBurstTime = lastBurstTime + burstDelay;
 						var needBurst = nextBurstTime <= emitDuration && totalBurstCount < burstTarget;
 						while( needBurst ) {
-							var delta = hxd.Math.ceil(hxd.Math.min(maxCount - numInstances, burstParticleCount));
+							var delta = hxd.Math.ceil(hxd.Math.min(maxCount - numInstances, Std.int(evaluator.getFloat(burstParticleCount, curTime))));
 							doEmit(delta);
 							totalBurstCount++;
 							lastBurstTime += burstDelay;
@@ -1189,7 +1201,7 @@ class EmitterObject extends h3d.scene.Object {
 					if( burstDelay > 0 ) {
 						var burstTarget = hxd.Math.min(burstCount, 1 + hxd.Math.floor(curTime / burstDelay));
 						while( totalBurstCount < burstTarget ) {
-							var delta = hxd.Math.ceil(hxd.Math.min(maxCount - numInstances, burstParticleCount));
+							var delta = hxd.Math.ceil(hxd.Math.min(maxCount - numInstances, Std.int(evaluator.getFloat(burstParticleCount, curTime))));
 							doEmit(delta);
 							totalBurstCount++;
 						}
@@ -1341,6 +1353,11 @@ class EmitterObject extends h3d.scene.Object {
 			case Local : parentTransform.load(parent.getAbsPos());
 			case World : parentTransform.load(getScene().getAbsPos());
 			// Optim: set to null if identity to skip multiply in particle updates
+		}
+
+		if (particleScaling == None) {
+			var scale = parentTransform.getScale();
+			parentTransform.scale(1.0/scale.x, 1.0/scale.y, 1.0/scale.z);
 		}
 
 		var prev : ParticleInstance = null;
@@ -1525,11 +1542,11 @@ class Emitter extends Object3D {
 		{ name: "emitRateChangeDelay", t: PFloat(0.01, 5.0), def: 1.0, disp: "Rate Change Time", groupName : "Emit Params" },
 		{ name: "burstCount", t: PInt(1, 10), disp: "Count", def : 1, groupName : "Emit Params" },
 		{ name: "burstDelay", t: PFloat(0, 1.0), disp: "Delay", def : 1.0, groupName : "Emit Params" },
-		{ name: "burstParticleCount", t: PInt(1, 10), disp: "Particle Count", def : 1, groupName : "Emit Params" },
+		{ name: "burstParticleCount", t: PInt(1, 10), disp: "Particle Count", def : 1, groupName : "Emit Params", animate: true },
 		{ name: "maxCount", t: PInt(0, 100), def: 20, groupName : "Emit Params" },
 		// EMIT SHAPE
 		{ name: "emitShape", t: PEnum(EmitShape), def: EmitShape.Sphere, disp: "Shape", groupName : "Emit Shape" },
-		{ name: "emitAngle", t: PFloat(0, 360.0), def: 30.0, disp: "Angle", groupName : "Emit Shape" },
+		{ name: "emitAngle", t: PFloat(0, 360.0), def: 30.0, disp: "Angle", groupName : "Emit Shape", animate: true },
 		{ name: "emitRad1", t: PFloat(0, 1.0), def: 1.0, disp: "Radius 1", groupName : "Emit Shape" },
 		{ name: "emitRad2", t: PFloat(0, 1.0), def: 1.0, disp: "Radius 2", groupName : "Emit Shape" },
 		{ name: "emitSurface", t: PBool, def: false, disp: "Surface", groupName : "Emit Shape" },
@@ -1744,7 +1761,6 @@ class Emitter extends Object3D {
 						}
 					default:
 				}
-				throw "Need optimization" + Std.string(a)+ " * " + Std.string(b);
 				return VMult(a, b);
 			}
 
@@ -1862,7 +1878,7 @@ class Emitter extends Object3D {
 		emitterObj.emitType 			= 	getParamVal("emitType");
 		emitterObj.burstCount 			= 	getParamVal("burstCount");
 		emitterObj.burstDelay 			= 	getParamVal("burstDelay");
-		emitterObj.burstParticleCount 	= 	getParamVal("burstParticleCount");
+		emitterObj.burstParticleCount 	= 	makeParam(this, "burstParticleCount");
 		emitterObj.emitDuration 		= 	getParamVal("emitDuration");
 		emitterObj.simulationSpace 		= 	getParamVal("simulationSpace");
 		emitterObj.particleScaling		= 	getParamVal("particleScaling");
@@ -1876,7 +1892,7 @@ class Emitter extends Object3D {
 		emitterObj.emitShape 			= 	getParamVal("emitShape");
 		emitterObj.followRotation 		= 	getParamVal("followRotation");
 		// EMIT SHAPE
-		emitterObj.emitAngle 			= 	getParamVal("emitAngle");
+		emitterObj.emitAngle 			= 	makeParam(this, "emitAngle");
 		emitterObj.emitRad1 			= 	getParamVal("emitRad1");
 		emitterObj.emitRad2 			= 	getParamVal("emitRad2");
 		emitterObj.emitSurface 			= 	getParamVal("emitSurface");

@@ -31,6 +31,9 @@ body {
 	padding : 0;
 	background-color : black;
 	user-select:none;
+
+	max-width: 100vw;
+	max-height: 100vh;
 }
 
 .lm_header .lm_tab {
@@ -892,6 +895,34 @@ input[type=checkbox] {
 			margin-left: 2px;
 			margin-right: 2px;
 		}
+
+		&.select {
+			@select-width: 250px;
+
+			>.icon {
+				padding-left: 3px;
+			}
+
+			.header {
+				display: inline-block;
+				background-color: @color-menu-bg;
+				border-radius: 2px;
+				min-width: @select-width;
+				padding: 2px;
+				margin: 5px;
+				cursor: pointer;
+
+				.label {
+					min-width: @select-width - 30px;
+				}
+			}
+
+			.dropdown {
+				position: absolute;
+				top: 30px;
+				left: 20px;
+			}
+		}
 	}
 
 }
@@ -1388,6 +1419,33 @@ input[type=checkbox] {
 		display:flex;
 		input {
 			width:100%
+		}
+	}
+
+	.select {
+		>.icon {
+			padding-left: 3px;
+		}
+
+		.header {
+			display: inline-block;
+			background-color: @color-menu-bg;
+			border-radius: 2px;
+			border: solid 1px #444;
+			padding: 2px;
+			cursor: pointer;
+			width: 192px;
+
+			>span {
+				padding-left: 5px;
+				width: 90% !important;
+			}
+		}
+
+		.dropdown {
+			position: absolute;
+			top: 30px;
+			left: 200px;
 		}
 	}
 }
@@ -3218,6 +3276,8 @@ div.sp-container {
 /* Script Editor */
 
 .codeeditor {
+	position: relative;
+
 	.codeErrorLine {
 		background: #400;
 	}
@@ -3228,13 +3288,16 @@ div.sp-container {
 		text-decoration: underline dashed red;
 	}
 	.codeErrorMessage {
+		position: absolute;
+		bottom: 0;
+		right: 0;
 		background : rgba(80, 5, 5, 1);
 		color : red;
-		position: absolute;
-		margin-top : -20px;
 		padding: 2px;
-		right : 13px;
 		border: 1px solid #A00;
+		max-height: 200px;
+		max-width: 400px;
+		overflow: hidden;
 	}
 }
 
@@ -3667,33 +3730,48 @@ div.gradient-box {
 }
 
 .domkitEditor {
-	tr, td {
-		padding : 0;
-		margin : 0;
-		border : 0px;
-		border-collapse: collapse;
-	}
-	table {
-		width : 100%;
-	}
-	.scene {
-		width : 1px;
-		height : 1px;
-	}
-	.cssEditor, .dmlEditor, .paramsEditor {
-		position: relative;
-		width : 50%;
-		.codeeditor {
-			height : 600px;
-			.codeErrorMessage {
-				top : 1px;
-				width : 90%;
+	height: 100%;
+	width: 100%;
+
+	.editors {
+		display: flex;
+		height: 100%;
+
+		.panel {
+			height: 100%;
+
+			&.left {
+				width: 48%;
+			}
+
+			&.right {
+				padding-left: 10px;
+				flex-grow: 1;
+				>.editor {
+					height: 100%;
+				}
+			}
+
+			>.editor {
+				display: flex;
+				flex-direction: column;
+				height: 50%;
+
+				>span {
+					font-size: 18px;
+					margin: 15px 0px 5px 10px;
+				}
+				.codeeditor {
+					flex-grow: 1;
+					height: 5px;
+				}
 			}
 		}
 	}
-	.separator {
-		width : 20;
-		background : #111;
+
+	.scene {
+		width : 1px;
+		height : 1px;
 	}
 }
 

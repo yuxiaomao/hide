@@ -47,11 +47,17 @@ class CodeEditor extends Component {
 		});
 		var model = editor.getModel();
 		(model : Dynamic).__comp__ = this;
+		errorMessage = new Element('<div class="codeErrorMessage"></div>').appendTo(root).hide();
 		model.updateOptions({ insertSpaces:false, trimAutoWhitespace:true });
 		editor.onDidChangeModelContent(function() onChanged());
 		editor.onDidBlurEditorText(function() if( saveOnBlur ) onSave());
-		editor.addCommand(monaco.KeyCode.KEY_S | monaco.KeyMod.CtrlCmd, function() { saveBind(); });
-		errorMessage = new Element('<div class="codeErrorMessage"></div>').appendTo(root).hide();
+
+		// This is needed because from monaco editor v0.31.1 to current version, commands added are global and not per editor (this is a bug)
+		editor.onDidFocusEditorText(function() {
+			editor.addCommand(monaco.KeyCode.KEY_S | monaco.KeyMod.CtrlCmd, function() {
+				saveBind();
+			});
+		});
 	}
 
 	function saveBind() {
@@ -148,7 +154,9 @@ class CodeEditor extends Component {
 			{ range : range, options : { inlineClassName: "codeErrorContentLine", isWholeLine : true } },
 			{ range : range, options : { linesDecorationsClassName: "codeErrorLine", inlineClassName: "codeErrorContent" } }
 		]);
-		errorMessage.html([for( l in msg.split("\n") ) StringTools.htmlEscape(l)].join("<br/>"));
+		var errStr = '${[for( l in msg.split("\n") ) StringTools.htmlEscape(l)].join("<br/>")}';
+		errorMessage.html(errStr);
+		errorMessage.prop('title', errStr);
 		errorMessage.toggle(true);
 		var rect = errorMessage[0].getBoundingClientRect();
 		if( rect.bottom > js.Browser.window.innerHeight )

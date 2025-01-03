@@ -74,6 +74,9 @@ class ContextShared {
 	}
 
 	public function savePrefabDat(file : String, ext : String, prefab : String, bytes : haxe.io.Bytes ) {
+		#if js
+		throw "not implemented";
+		#else
 		var datDir = getFolderDatPath();
 		var instanceDir = datDir + "/" + prefab;
 
@@ -105,6 +108,7 @@ class ContextShared {
 		}else{
 			sys.io.File.saveBytes(file, bytes);
 		}
+		#end
 	}
 
 	public function loadShader( path : String ) : Cache.ShaderDef {
@@ -218,12 +222,14 @@ class ContextShared {
 		}
 	}
 
-	public function getObjects<T:h3d.scene.Object>( p : Prefab, c: Class<T> ) : Array<T> {
+	public function getObjects<T:h3d.scene.Object>( p : Prefab, c: Class<T>, ?filter : h3d.scene.Object -> Bool ) : Array<T> {
 		var root = p.to(Object3D)?.local3d;
 		if(root == null) return [];
 		var childObjs = getChildrenRoots(root, p, []);
 		var ret = [];
 		function rec(o : h3d.scene.Object) {
+			if ( filter != null && !filter(o) )
+				return;
 			var m = Std.downcast(o, c);
 			if(m != null) {
 				if(ret.contains(m))

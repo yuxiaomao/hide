@@ -2,6 +2,7 @@ package hide.view;
 import hxd.Key as K;
 
 class Model extends FileView {
+	static var KEY_ANIM_PLAYING = "AnimationPlaying";
 
 	var tools : hide.comp.Toolbar;
 	var obj : h3d.scene.Object;
@@ -233,15 +234,15 @@ class Model extends FileView {
 			tex.hide();
 			matEl.hide();
 		}
-		if ( def )
-			def = false;
+		else {
+			def = true;
+		}
+
 		var matLibrary = new Element('
 			<div class="group" name="Material Library">
 				<dt>Library</dt>
 				<dd>
 					<select class="lib">
-						<option value="">None</option>
-						${[for( i in 0...matLibs.length ) '<option value="${matLibs[i].name}" ${(selectedLib == matLibs[i].path) ? 'selected' : ''}>${matLibs[i].name}</option>'].join("")}
 					</select>
 				</dd>
 				<dt>Material</dt>
@@ -268,48 +269,93 @@ class Model extends FileView {
 		var libSelect = matLibrary.find(".lib");
 		var matSelect = matLibrary.find(".mat");
 
+		function updateBaseEdition() {
+			if (def) {
+				tex.show();
+				matEl.show();
+			}
+			else {
+				tex.hide();
+				matEl.hide();
+			}
+		}
+
 		function updateMatSelect() {
 			matSelect.empty();
 			new Element('<option value="">None</option>').appendTo(matSelect);
 
-			materials = scene.listMaterialFromLibrary(getPath(), libSelect.val());
-
-			for (idx in 0...materials.length) {
-				new Element('<option value="${materials[idx].path + "/" + materials[idx].mat.name}" ${(selectedMat == materials[idx].path + "/" + materials[idx].mat.name) ? 'selected' : ''}>${materials[idx].mat.name}</option>').appendTo(matSelect);
+			var libName = "";
+			for (matLib in matLibs) {
+				if (matLib.path == selectedLib)
+					libName = matLib.name;
 			}
+
+			materials = scene.listMaterialFromLibrary(getPath(), libName);
+
+			for (idx in 0...materials.length)
+				new Element('<option value="${materials[idx].path + "/" + materials[idx].mat.name}" ${(selectedMat == materials[idx].path + "/" + materials[idx].mat.name && !def) ? 'selected' : ''}>${materials[idx].mat.name}</option>').appendTo(matSelect);
 		}
 
+		function updateLibSelect() {
+			libSelect.empty();
+			new Element('<option value="">None</option>').appendTo(libSelect);
+
+			for (lib in matLibs)
+				new Element('<option value="${lib.name}" ${(selectedLib == lib.path && !def) ? 'selected' : ''}>${lib.name}</option>').appendTo(libSelect);
+		}
+
+		updateLibSelect();
 		updateMatSelect();
+		updateBaseEdition();
 
 		if ( props != null && props.__refMode != null )
 			mode.val((props:Dynamic).__refMode).select();
 
+		libSelect.change(function(e :js.jquery.Event) {
+			var prevV = selectedLib;
+			selectedLib = null;
+			for (matLib in matLibs) {
+				if (matLib.name == libSelect.val())
+					selectedLib = matLib.path;
+			}
+			var newV = selectedLib;
 
-		function setDefault() {
-			tex.show();
-			matEl.show();
-			def = true;
-			selectMaterial(m);
-		}
+			function exec(undo : Bool) {
+				selectedLib = undo ? prevV : newV;
+				def = selectedLib == "" || selectedLib == null;
+				updateLibSelect();
+				updateMatSelect();
+				updateBaseEdition();
+			}
 
-		libSelect.change(function(_) {
-			updateMatSelect();
-
-			if (libSelect.val() == "")
-				setDefault();
+			exec(false);
+			undo.change(Custom(exec));
 		});
 
 		matSelect.change(function(_) {
-			var mat = Reflect.field(scene.findMat(materials, matSelect.val()), "mat");
-			if ( mat != null ) {
-				@:privateAccess mat.update(m, mat.renderProps(), function(path:String) {
-					return hxd.res.Loader.currentInstance.load(path).toTexture();
-				});
-				tex.hide();
-				matEl.hide();
-			} else {
-				setDefault();
+			var prevV = selectedMat;
+			selectedMat = matSelect.val();
+			var newV = selectedMat;
+
+			function exec(undo : Bool) {
+				selectedMat = undo ? prevV : newV;
+				var mat = Reflect.field(scene.findMat(materials, selectedMat), "mat");
+				if ( mat != null ) {
+					@:privateAccess mat.update(m, mat.renderProps(), function(path:String) {
+						return hxd.res.Loader.currentInstance.load(path).toTexture();
+					});
+					def = false;
+				} else {
+					def = true;
+				}
+
+				updateLibSelect();
+				updateMatSelect();
+				updateBaseEdition();
 			}
+
+			exec(false);
+			undo.change(Custom(exec));
 		});
 
 		matLibrary.find(".goTo").click(function(_) {
@@ -462,7 +508,14 @@ class Model extends FileView {
 					<dt>X</dt><dd><input field="x"/></dd>
 					<dt>Y</dt><dd><input field="y"/></dd>
 					<dt>Z</dt><dd><input field="z"/></dd>
-					<dt>Attach</dt><dd><select class="follow"><option value="">--- None ---</option></select></dd>
+					<dt>Attach</dt><dd><div class="follow">
+					<div class="select">
+						<div class="header">
+							<span class="label">-- None --</span>
+							<div class="icon ico ico-caret-right"></div>
+						</div>
+						<div class="dropdown"/>
+					</div></dd>
 				</dl>
 			</div>
 			<div class="group" name="Info">
@@ -535,7 +588,7 @@ class Model extends FileView {
 			}
 
 			// LODs edition
-			if (@:privateAccess hmd.lodCount() > 0) {
+			if (@:privateAccess hmd.lodCount() > 1) {
 				var lodsEl = new Element('
 					<div class="group lods" name="LODs">
 						<dt>LOD Count</dt><dd>${hmd.lodCount()}</dd>
@@ -564,7 +617,7 @@ class Model extends FileView {
 				function getLodRatioFromIdx(idx : Int) {
 					var lodConfig = hmd.getLodConfig();
 					if (idx == 0) return 1.;
-					if (idx >= hmd.lodCount()) return 0.;
+					if (idx >= hmd.lodCount() + 1) return 0.;
 					return lodConfig[idx - 1];
 				}
 
@@ -576,8 +629,8 @@ class Model extends FileView {
 				function getLodRatioPowedFromIdx(idx : Int) {
 					var lodConfig = hmd.getLodConfig();
 					var prev = idx == 0 ? 1 : hxd.Math.pow(lodConfig[idx - 1] , lodPow);
-
-					return (Math.abs(prev - hxd.Math.pow(lodConfig[idx], lodPow)));
+					var c = lodConfig[idx] == null ? 0 : lodConfig[idx];
+					return (Math.abs(prev - hxd.Math.pow(c, lodPow)));
 				}
 
 				function startDrag(onMove: js.jquery.Event->Void, onStop: js.jquery.Event->Void) {
@@ -630,14 +683,15 @@ class Model extends FileView {
 				});
 
 				var lodsLine = lodsEl.find(".line");
-				for (idx in 0...hmd.lodCount()) {
+				for (idx in 0...(hmd.lodCount() + 1)) {
+					var isCulledLod = idx == hmd.lodCount();
 					var areaEl = new Element('
 					<div class="area">
-						<p>LOD&nbsp${idx}</p>
+						<p>${isCulledLod ? 'Culled' : 'LOD&nbsp${idx}'}</p>
 						<p id="percent">-%</p>
 					</div>');
 
-					if (idx == hmd.lodCount() - 1)
+					if (isCulledLod)
 						areaEl.css({ flex : 1 });
 
 					lodsLine.append(areaEl);
@@ -645,7 +699,7 @@ class Model extends FileView {
 
 					var widthHandle = 10;
 					areaEl.on("mousemove", function(e:js.jquery.Event) {
-						if ((e.offsetX <= widthHandle && idx != 0) || (areaEl.width() - e.offsetX) <= widthHandle && idx != hmd.lodCount() - 1)
+						if ((e.offsetX <= widthHandle && idx != 0) || (areaEl.width() - e.offsetX) <= widthHandle && idx != hmd.lodCount())
 							areaEl.css({ cursor : 'w-resize' });
 						else
 							areaEl.css({ cursor : 'default' });
@@ -653,13 +707,13 @@ class Model extends FileView {
 
 					areaEl.on("mousedown", function(e:js.jquery.Event) {
 						var firstHandle = e.offsetX <= widthHandle && idx != 0;
-						var secondHandle = areaEl.width() - e.offsetX <= widthHandle && idx != hmd.lodCount() - 1;
+						var secondHandle = areaEl.width() - e.offsetX <= widthHandle && idx != hmd.lodCount();
 
 						if (firstHandle || secondHandle) {
 							var currIdx = secondHandle ? idx : idx - 1;
 							var prevConfig = @:privateAccess hmd.lodConfig?.copy();
 							var newConfig = hmd.getLodConfig()?.copy();
-							var limits = [ getLodRatioFromIdx(currIdx + 2),  getLodRatioFromIdx(currIdx)];
+							var limits = [ getLodRatioFromIdx(currIdx + 2), getLodRatioFromIdx(currIdx)];
 
 							startDrag(function(e) {
 								var newRatio = getLodRatioFromPx(e.clientX - lodsLine.offset().left);
@@ -689,16 +743,37 @@ class Model extends FileView {
 		}
 
 		var select = e.find(".follow");
+		var header = select.find(".header");
+		var dropdown = select.find(".dropdown");
+		function onFollowSelected(v : String) {
+			var name = v.split(".").pop();
+			obj.follow = this.obj.getObjectByName(name);
+			header.find('.label').text(name);
+		}
+
+		var items: Array<hide.comp.ContextMenu.MenuItem> = [{ label: "-- None --", click: () -> onFollowSelected("-- None --")}];
 		for( path in getNamedObjects(obj) ) {
 			var parts = path.split(".");
-			var opt = new Element("<option>").attr("value", path).html([for( p in 1...parts.length ) "&nbsp; "].join("") + parts.pop());
-			select.append(opt);
+			var name = parts[parts.length - 1];
+			var label = [for( p in 1...parts.length ) "&nbsp; "].join("") + parts.pop();
+			items.push({ label: label, click: () -> onFollowSelected(name) });
 		}
-		select.change(function(_) {
-			var name = select.val().split(".").pop();
-			obj.follow = this.obj.getObjectByName(name);
-		});
 
+		header.click(function(_) {
+			var icon = header.find(".icon");
+			var visible = icon.hasClass('ico-caret-down');
+			visible = !visible;
+			icon.toggleClass("ico-caret-right", !visible);
+			icon.toggleClass("ico-caret-down", visible);
+			if (visible) {
+				var menu = hide.comp.ContextMenu.createDropdown(dropdown.get(0), items, { search: hide.comp.ContextMenu.SearchMode.Visible });
+				menu.onClose = () -> {
+					icon.toggleClass("ico-caret-right", true);
+					icon.toggleClass("ico-caret-down", false);
+				};
+			}
+
+		});
 
 		refreshSelectionHighlight(obj);
 	}
@@ -910,7 +985,13 @@ class Model extends FileView {
 		tools.clear();
 		var anims = scene.listAnims(getPath());
 
+		var a = this.getDisplayState(KEY_ANIM_PLAYING);
 		if( anims.length > 0 ) {
+			var selIdx = 0;
+			for (aIdx => anim in anims) {
+				if (anim == a)
+					selIdx = aIdx + 1;
+			}
 			var sel = tools.addSelect("play-circle");
 			var content = [for( a in anims ) {
 				var label = scene.animationName(a);
@@ -918,11 +999,12 @@ class Model extends FileView {
 			}];
 			content.unshift({ label : "-- no anim --", value : null });
 			sel.setContent(content);
+			sel.element.find(".label").text(content[selIdx].label);
 			sel.onSelect = function(file:String) {
 				if (scene.editor.view.modified && !js.Browser.window.confirm("Current animation has been modified, change animation without saving?"))
 				{
 					var idx = anims.indexOf(currentAnimation.file)+1;
-					sel.element.find("select").val(""+idx);
+					sel.element.find(".label").text(content[idx].label);
 					return;
 				}
 
@@ -995,7 +1077,7 @@ class Model extends FileView {
 		initConsole();
 
 		sceneEditor.onResize = buildTimeline;
-		setAnimation(null);
+		setAnimation(a);
 
 		// Adapt initial camera position to model
 		var camSettings = @:privateAccess sceneEditor.view.getDisplayState("Camera");
@@ -1091,6 +1173,7 @@ class Model extends FileView {
 		if( file == null ) {
 			obj.stopAnimation();
 			currentAnimation = null;
+			this.removeDisplayState(KEY_ANIM_PLAYING);
 			return;
 		}
 		var anim = scene.loadAnimation(file);
@@ -1105,6 +1188,8 @@ class Model extends FileView {
 		buildTimeline();
 		buildEventPanel();
 		modified = false;
+
+		this.saveDisplayState(KEY_ANIM_PLAYING, file);
 	}
 
 	function buildEventPanel(){
@@ -1250,7 +1335,8 @@ class Model extends FileView {
 					var tf = new h2d.TextInput(hxd.res.DefaultFont.get(), timeline);
 					tf.backgroundColor = 0xFF0000;
 					tf.onClick = function(e) {
-						sceneEditor.view.keys.pushDisable();
+						if (@:privateAccess sceneEditor.view.keys.disabledStack == 0)
+							sceneEditor.view.keys.pushDisable();
 						e.propagate = false;
 					}
 					tf.onFocusLost = function(e) {
@@ -1401,7 +1487,7 @@ class Model extends FileView {
 			if ( hmd != null ) {
 				var lodsCountEl = sceneEditor.properties.element.find("#vertexes-count");
 				var curLod = hmd.forcedLod >= 0 ? hmd.forcedLod : hmd.screenRatioToLod(@:privateAccess selectedMesh.curScreenRatio);
-				var lodVertexesCount = @:privateAccess hmd.lods[curLod].vertexCount;
+				var lodVertexesCount = @:privateAccess { ( curLod < hmd.lods.length ) ? hmd.lods[curLod].vertexCount : 0; };
 				lodsCountEl.text(lodVertexesCount);
 			}
 

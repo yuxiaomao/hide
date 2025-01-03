@@ -120,7 +120,7 @@ class SourceComponent extends domkit.Component<h2d.Object, h2d.Object> {
 			var p = this.parent;
 			while( p is SourceComponent )
 				p = p.parent;
-			var obj : h2d.Object = p.make(args, parent);
+			var obj : h2d.Object = @:privateAccess viewer.compMake(p, args, parent);
 			if( obj.dom != null ) @:privateAccess obj.dom.component = this;
 			return obj;
 		}
@@ -130,11 +130,23 @@ class SourceComponent extends domkit.Component<h2d.Object, h2d.Object> {
 
 }
 
+class DomkitBaseContext {
+
+	public function new() {
+	}
+
+	public function loadTile( url : String ) {
+		return hxd.res.Loader.currentInstance.load(url).toTile();
+	}
+
+}
+
 class DomkitViewer extends h2d.Object {
 
 	var resource : hxd.res.Resource;
 	var variablesFiles : Array<hxd.res.Resource> = [];
 	var current : h2d.Object;
+	var currentObj : h2d.Object;
 	var cssResources : Map<String,CssResource> = [];
 	var interp : DomkitInterp;
 	var style : h2d.domkit.Style;
@@ -147,6 +159,7 @@ class DomkitViewer extends h2d.Object {
 	var createRootArgs : Array<Dynamic>;
 	var evaluatedParams : Dynamic;
 	var loadedComponents : Array<domkit.Component<h2d.Object, h2d.Object>> = [];
+	var compHooks : Map<String,Array<Dynamic> -> h2d.Object -> h2d.Object> = [];
 
 	public function new( style : h2d.domkit.Style, res : hxd.res.Resource, ?parent ) {
 		super(parent);
@@ -154,6 +167,7 @@ class DomkitViewer extends h2d.Object {
 		this.resource = res;
 		res.watch(rebuild);
 		baseVariables = style.cssParser.variables.copy();
+		addContext(new DomkitBaseContext());
 		rebuildDelay();
 	}
 
@@ -177,6 +191,10 @@ class DomkitViewer extends h2d.Object {
 	public function addContext( ctx : Dynamic ) {
 		contexts.push(ctx);
 		rebuildDelay();
+	}
+
+	public function addComponentHook( name : String, make ) {
+		compHooks.set(name, make);
 	}
 
 	#if castle
@@ -219,6 +237,8 @@ class DomkitViewer extends h2d.Object {
 
 	override function onRemove() {
 		super.onRemove();
+		if( currentObj != null )
+			currentObj.remove();
 		for( r in variablesFiles )
 			r.watch(null);
 		style.cssParser.variables = baseVariables;
@@ -302,7 +322,12 @@ class DomkitViewer extends h2d.Object {
 			var classes : Array<String> = Std.downcast(evaluatedParams.classes,Array);
 			if( classes != null ) {
 				var checks = new h2d.Flow(root);
-				checks.dom = domkit.Properties.create("flow",checks,{ "class" : "debugClasses", "position" : "absolute", "align" : "middle top", "margin-top" : "5" });
+				checks.dom = domkit.Properties.create("flow",checks,{ "class" : "debugClasses" });
+				var p = root.getProperties(checks);
+				p.isAbsolute = true;
+				p.verticalAlign = Top;
+				p.horizontalAlign = Middle;
+				p.paddingTop = 5;
 				for( cl in classes ) {
 					var c = new h2d.CheckBox(checks);
 					c.dom = domkit.Properties.create("flow",c);
@@ -314,6 +339,10 @@ class DomkitViewer extends h2d.Object {
 			}
 		}
 
+		if( currentObj != null ) {
+			currentObj.remove();
+			currentObj = null;
+		}
 		if( current != null ) {
 			current.remove();
 			style.removeObject(current);
@@ -321,6 +350,7 @@ class DomkitViewer extends h2d.Object {
 		addChild(root);
 		style.addObject(root);
 		current = root;
+		currentObj = obj;
 		for( c in cssResources )
 			c.watchCallb();
 	}
@@ -405,6 +435,13 @@ class DomkitViewer extends h2d.Object {
 		return null;
 	}
 
+	inline function compMake<T,R>( c : domkit.Component<T,R>, args : Array<Dynamic>, parent : T ) : R {
+		var f = compHooks.get(c.name);
+		if( f != null )
+			return cast f(args,cast parent);
+		return c.make(args, cast parent);
+	}
+
 	function addRec( e : domkit.MarkupParser.Markup, parent : h2d.Object, isRoot ) {
 		var comp : h2d.Object = null;
 		switch( e.kind ) {
@@ -433,9 +470,9 @@ class DomkitViewer extends h2d.Object {
 					parent = domkit.Component.get("flow");
 				if( c == null || (parent != null && c.parent != parent) ) {
 					c = new domkit.Component(name,function(args,p) {
-						var obj = c.parent.make(args,p);
+						var obj = compMake(c.parent,args,p);
 						if( obj.dom != null )
-							obj.dom.component = c;
+							@:privateAccess obj.dom.component = c;
 						return obj;
 					},parent);
 					domkit.CssStyle.CssData.registerComponent(c);
@@ -511,7 +548,7 @@ class DomkitViewer extends h2d.Object {
 						addRec(c, obj, false);
 				};
 			}
-			var obj = c.make(args, parent.dom?.contentRoot);
+			var obj = compMake(c, args, parent.dom?.contentRoot);
 			var p = obj.dom;
 			if( p == null ) p = obj.dom = new domkit.Properties(obj, c);
 			p.initAttributes(attributes);

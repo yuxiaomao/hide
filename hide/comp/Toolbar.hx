@@ -31,7 +31,7 @@ typedef ToolToggle = {
 
 typedef ToolSelect<T> = {
 	var element : Element;
-	function setContent( elements : Array<{ label : String, value : T }> ) : Void;
+	dynamic function setContent( elements : Array<{ label : String, value : T }> ) : Void;
 	dynamic function onSelect( v : T ) : Void;
 }
 
@@ -84,13 +84,16 @@ class Toolbar extends Component {
 		return e;
 	}
 
-	public function addToggle( id: String, icon : String, ?title : String, ?label : String, ?onToggle : Bool -> Void, ?defValue = false, ?toggledIcon : String, saveToggleState = true) : ToolToggle {
+	public function addToggle( id: String, icon : String, ?title : String, ?label : String, ?onToggle : Bool -> Void, ?defValue = false, ?toggledIcon : String, saveToggleState : Bool = true, canBeUntoggled : Bool = true) : ToolToggle {
 		var e = new Element('<div class="button2" id="${id}" title="${title==null ? "" : title}"><div class="icon ico ico-$icon"/></div>');
 
 		if(label != null)
 			new Element('<label>$label</label>').appendTo(e);
 
 		function tog() {
+			if (!canBeUntoggled && e.get(0).hasAttribute("checked"))
+				return;
+
 			e.get(0).toggleAttribute("checked");
 			var checked = e.get(0).hasAttribute("checked");
 
@@ -153,20 +156,54 @@ class Toolbar extends Component {
 	}
 
 	public function addSelect<T>( icon : String, ?label : String ) : ToolSelect<T> {
-		var e = new Element('<div class="select" title="${label==null ? "" : label}"><div class="icon ico ico-$icon"/><select/></div>');
-		var content : Array<{ label : String, value : T }> = [];
-		var select = e.find("select");
+		var e = new Element('
+			<div class="select" title="${label==null ? "" : label}">
+				<div class="icon ico ico-$icon"></div>
+				<div class="header">
+					<span class="label"></span>
+					<div class="icon ico ico-caret-right"></div>
+				</div>
+				<div class="dropdown"/>
+			</div>
+		');
+
+		var header = e.find(".header");
+		var label = header.find(".label");
+		var items: Array<ContextMenu.MenuItem> = [];
 		var tool : ToolSelect<T> = {
 			element : e,
-			setContent : function(c) {
-				select.html("");
-				content = c;
-				for( i in 0...content.length )
-					new Element('<option value="$i">${content[i].label}</option>').appendTo(select);
-			},
+			setContent : function(_) {},
 			onSelect : function(_) {},
 		};
-		select.change(function(_) tool.onSelect(content[Std.parseInt(select.val())].value));
+
+		tool.setContent = function(c) {
+			for( i in 0...c.length ) {
+				items.push({
+					label: c[i].label,
+					click: () -> {
+						label.text(c[i].label);
+						tool.onSelect(c[i].value);
+					}
+				});
+			}
+		};
+
+		header.click(function(_) {
+			var icon = header.find(".icon");
+			var visible = icon.hasClass('ico-caret-down');
+			visible = !visible;
+			icon.toggleClass("ico-caret-right", !visible);
+			icon.toggleClass("ico-caret-down", visible);
+
+			if (visible) {
+				var menu = ContextMenu.createDropdown(e.find(".dropdown").get(0), items, { search: ContextMenu.SearchMode.Visible });
+				menu.onClose = () -> {
+					icon.toggleClass("ico-caret-right", true);
+					icon.toggleClass("ico-caret-down", false);
+				};
+			}
+		});
+
 		e.appendTo(curGroup);
 		return tool;
 	}

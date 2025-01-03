@@ -14,6 +14,7 @@ class Shader extends Prefab {
 	@:s var recursiveApply = true;
 
 	public var shader : hxsl.Shader;
+	public var filterObj : h3d.scene.Object -> Bool;
 
 	function new(parent, sh: ContextShared) {
 		super(parent, sh);
@@ -126,17 +127,17 @@ class Shader extends Prefab {
 			}
 			if( recursiveApply ) {
 				for( c in parent.flatten() )
-					for( o in shared.getObjects(c, h3d.scene.Object) )
+					for( o in shared.getObjects(c, h3d.scene.Object, filterObj) )
 						pushUnique(o);
 			} else if( parent.type == "object" ) {
 				// apply to all immediate children
 				for( c in parent.children )
-					for( o in shared.getObjects(c, h3d.scene.Object) )
+					for( o in shared.getObjects(c, h3d.scene.Object, filterObj) )
 						pushUnique(o);
 			} else {
 				var obj3d = Std.downcast(parent,hrt.prefab.Object3D);
 				if (obj3d != null)
-					objs = obj3d.getObjects(h3d.scene.Object);
+					objs = obj3d.getObjects(h3d.scene.Object, filterObj);
 			}
 			for( obj in objs )
 				for( m in obj.getMaterials(false) )
@@ -147,7 +148,7 @@ class Shader extends Prefab {
 	override function dispose() {
 		if( shared.current3d != null )
 			iterMaterials(function(obj,mat) if(checkMaterial(mat)) removeShader(obj, mat, shader));
-
+		filterObj = null;
 		super.dispose();
 	}
 
@@ -283,10 +284,20 @@ class Shader extends Prefab {
 	override function getHideProps() : HideProps {
 		var cl = Type.getClass(this);
 		var name = Type.getClassName(cl).split(".").pop();
+		var inheritDynamicShader = false;
+		var thisClass : Class<Dynamic> = cl;
+		while (thisClass != null) {
+			if (thisClass == hrt.prefab.DynamicShader) {
+				inheritDynamicShader = true;
+				break;
+			}
+			thisClass = Type.getSuperClass(thisClass);
+		}
+
 		return {
 			icon : "cog",
 			name : name,
-			fileSource : cl == hrt.prefab.DynamicShader ? ["hx"] : null
+			fileSource : inheritDynamicShader ? ["hx"] : null
 		};
 	}
 

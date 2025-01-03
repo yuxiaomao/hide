@@ -1785,8 +1785,7 @@ class SceneEditor {
 				menuItems = menuItems.concat([
 					{ label : "Show in editor" , checked : !isHidden(current), stayOpen : true, click : function() setVisible(selectedPrefabs, isHidden(current), tree), keys : view.config.get("key.sceneeditor.hide") },
 					{ label : "Locked", checked : current.locked, stayOpen : true, click : function() {
-						current.locked = !current.locked;
-						setLock(selectedPrefabs, current.locked, tree);
+						setLock(selectedPrefabs, !current.locked, tree);
 					} },
 					{ label : "Select all", click : selectAll, keys : view.config.get("key.selectAll") },
 					{ label : "Select children", enabled : current != null, click : function() selectElements(current.flatten()) },
@@ -3245,32 +3244,6 @@ class SceneEditor {
 		return p.setSelected(b);
 	}
 
-	public function changeAllModels(source : hrt.prefab.Object3D, path : String) {
-		var all = sceneData.all();
-		var oldPath = source.source;
-		var changedModels = [];
-		for (child in all) {
-			var model = child.to(hrt.prefab.Object3D);
-			if (model != null && model.source == oldPath) {
-				model.source = path;
-				model.name = "";
-				autoName(model);
-				changedModels.push(model);
-				model.getLocal3d().remove();
-				model.make();
-			}
-		}
-		undo.change(Custom(function(u) {
-			for (model in changedModels) {
-				model.source = u ? oldPath : path;
-				model.name = "";
-				autoName(model);
-				model.getLocal3d().remove();
-				model.make();
-			}
-		}));
-	}
-
 	public dynamic function onSelectionChanged(elts : Array<PrefabElement>, ?mode : SelectMode = Default) {};
 
 	public function selectElements( elts : Array<PrefabElement>, ?mode : SelectMode = Default ) {
@@ -3936,6 +3909,7 @@ class SceneEditor {
 	public function setLock(elements : Array<PrefabElement>, locked: Bool, enableUndo : Bool = true, ?tree: IconTree<PrefabElement>) {
 		if (tree == null)
 			tree = this.tree;
+		var elements = elements.copy();
 		var prev = [for( o in elements ) o.locked];
 		for(o in elements) {
 			o.locked = locked;
@@ -3949,13 +3923,15 @@ class SceneEditor {
 			}
 		}
 		if (enableUndo) {
-			undo.change(Custom(function(redo) {
+			undo.change(Custom(function(isUndo) {
 				for( i in 0...elements.length )
-					elements[i].locked = redo ? locked : prev[i];
-			}), function() {
-				tree.refresh();
+					elements[i].locked = !isUndo ? locked : prev[i];
 				queueRebuild(sceneData);
-			});
+				refreshTree();
+				saveDisplayState();
+				showGizmo = !isUndo ? !locked : locked;
+				moveGizmoToSelection();
+			}));
 		}
 
 		saveDisplayState();
@@ -4499,6 +4475,7 @@ class SceneEditor {
 		}
 		for( ptype in allRegs.keys() ) {
 			var pinf = allRegs.get(ptype);
+			if (pinf.inf.hideInAddMenu) continue;
 
 			if (!checkAllowParent(pinf, parent)) continue;
 			if(ptype == "shader") {
