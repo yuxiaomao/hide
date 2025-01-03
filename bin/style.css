@@ -3217,6 +3217,12 @@ div.gradient-box {
   padding-left: 5px;
   padding-right: 5px;
   cursor: pointer;
+  pointer-events: auto;
+  color: lightgray;
+}
+.profiler .left-panel .hide-tabs #search-bar .disable {
+  pointer-events: none;
+  color: gray;
 }
 .profiler .left-panel .hide-tabs .tab-content {
   height: 100%;

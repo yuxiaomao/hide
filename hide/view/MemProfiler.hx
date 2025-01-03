@@ -9,6 +9,7 @@ class MemProfiler extends hide.ui.View<{}> {
 
 	var statsView : Element;
 	var tabsView : Element;
+	var searchBar : MemProfilerSearchBar;
 	var summaryView : MemProfilerSummaryView;
 	var inspectView : MemProfilerInspectView;
 
@@ -208,6 +209,7 @@ class MemProfiler extends hide.ui.View<{}> {
 		if( tabsView != null )
 			tabsView.remove();
 		tabsView = null;
+		searchBar = null;
 		summaryView = null;
 		inspectView = null;
 	}
@@ -285,14 +287,8 @@ class MemProfiler extends hide.ui.View<{}> {
 		summaryBtn.on('click', (e) -> openSummaryTab());
 		var inspectBtn = new Element('<div name="inspect">Inspect</button>').appendTo(header);
 		inspectBtn.on('click', (e) -> openInspectTab());
-		var searchBar = tabsView.find("#search-bar");
-		var searchInput = new Element('<input type="text" placeholder="Search..">').appendTo(searchBar);
-		var searchBtn = new Element('<i class="ico ico-search"></i>').appendTo(searchBar);
-		searchInput.keydown((e) -> if (e.key == 'Enter' || e.keyCode == 13) searchBtn.click());
-		searchBtn.on('click', function(e) {
-			openInspectTab(searchInput.val());
-		});
-		var content = tabsView.find(".tab-content");
+		searchBar = new MemProfilerSearchBar(this);
+		searchBar.element.appendTo(tabsView.find("#search-bar"));		var content = tabsView.find(".tab-content");
 		summaryView = new MemProfilerSummaryView(this);
 		summaryView.element.appendTo(content);
 		inspectView = new MemProfilerInspectView(this);
@@ -312,6 +308,11 @@ class MemProfiler extends hide.ui.View<{}> {
 	}
 
 	public function openInspectTab( ?tstr : String ) {
+		if( tstr != null && tstr.length > 0 && searchBar.searchHistory[searchBar.searchHistoryIndex] != tstr ) {
+			searchBar.searchHistory.unshift(tstr);
+			searchBar.searchHistoryIndex = 0;
+			searchBar.refreshSearchBar();
+		}
 		var header = tabsView.find(".tabs-header");
 		header.find("[name=summary]").removeClass("active");
 		header.find("[name=inspect]").addClass("active");
@@ -326,6 +327,46 @@ class MemProfiler extends hide.ui.View<{}> {
 }
 
 #if (hashlink >= "1.15.0")
+class MemProfilerSearchBar extends hide.comp.Component {
+	var profiler : MemProfiler;
+	public var searchHistory : Array<String> = [];
+	public var searchHistoryIndex : Int = 0;
+	var searchInput : Element;
+	var searchBtn : Element;
+	var searchPrev : Element;
+	var searchNext : Element;
+	public function new( profiler : MemProfiler ) {
+		super(null, null);
+		this.profiler = profiler;
+		searchPrev = new Element('<i class="ico ico-arrow-left disable"></i>').appendTo(element);
+		searchNext = new Element('<i class="ico ico-arrow-right disable"></i>').appendTo(element);
+		searchInput = new Element('<input type="text" placeholder="Search..">').appendTo(element);
+		searchBtn = new Element('<i class="ico ico-search"></i>').appendTo(element);
+		searchInput.keydown(function(e) {
+			if (e.key == 'Enter') searchBtn.click();
+			if (e.key == 'ArrowUp') searchPrev.click();
+			if (e.key == 'ArrowDown') searchNext.click();
+		});
+		searchBtn.on('click', function(e) {
+			profiler.openInspectTab(searchInput.val());
+		});
+		searchPrev.on('click', function(e) {
+			searchHistoryIndex = searchHistoryIndex >= searchHistory.length - 1 ? searchHistory.length - 1 : searchHistoryIndex + 1;
+			refreshSearchBar();
+		});
+		searchNext.on('click', function(e) {
+			searchHistoryIndex = searchHistoryIndex <= 1 ? 0 : searchHistoryIndex - 1;
+			refreshSearchBar();
+		});
+	}
+	public function refreshSearchBar() {
+		if( searchHistoryIndex < searchHistory.length )
+			searchInput.val(searchHistory[searchHistoryIndex]);
+		searchPrev.toggleClass("disable", searchHistoryIndex >= searchHistory.length - 1);
+		searchNext.toggleClass("disable", searchHistoryIndex == 0);
+	}
+}
+
 class MemProfilerSummaryView extends hide.comp.Component {
 	var profiler : MemProfiler;
 	public var typeStats : hlmem.Result.BlockStats = null;
@@ -355,10 +396,6 @@ class MemProfilerInspectView extends hide.comp.Component {
 	var ttypeName : String;
 	var locateRootBtn : Element;
 	var locateRootTable : MemProfilerTable;
-	var searchBar : Element;
-	var locateTable : MemProfilerTable;
-	var parentsTable : MemProfilerTable;
-	var subsTable : MemProfilerTable;
 	public function new( profiler : MemProfiler ) {
 		super(null, null);
 		this.profiler = profiler;
@@ -374,22 +411,20 @@ class MemProfilerInspectView extends hide.comp.Component {
 			return;
 		}
 		ttypeName = ttype.toString() + "#" + ttype.tid;
-		new Element('<p>Type: ${StringTools.htmlEscape(ttypeName)}</p>').appendTo(element);
 		var ttypeStat = profiler.getTypeStat(ttype);
-		if( ttypeStat != null ) {
-			new Element('
-				<p>Blocks count: ${ttypeStat.count}</p>
-				<p>Blocks size: ${ttypeStat.size}</p>
-			').appendTo(element);
-		}
+		new Element('
+			<p>Type: ${StringTools.htmlEscape(ttypeName)}</p>
+			<p>Blocks count: ${ttypeStat == null ? 0 : ttypeStat.count}</p>
+			<p>Blocks size: ${ttypeStat == null ? 0 : ttypeStat.size}</p>
+		').appendTo(element);
 		var data = mainMemory.locate(ttype);
-		locateTable = new MemProfilerTable(profiler, "Locate", data, 10);
+		var locateTable = new MemProfilerTable(profiler, "Locate", data, 10);
 		locateTable.element.appendTo(element);
 		var data = mainMemory.parents(ttype);
-		parentsTable = new MemProfilerTable(profiler, "Parents", data, 5);
+		var parentsTable = new MemProfilerTable(profiler, "Parents", data, 5);
 		parentsTable.element.appendTo(element);
 		var data = mainMemory.subs(ttype);
-		subsTable = new MemProfilerTable(profiler, "Subs", data, 5);
+		var subsTable = new MemProfilerTable(profiler, "Subs", data, 5);
 		subsTable.element.appendTo(element);
 		locateRootTable = null;
 		locateRootBtn = new Element('<input type="button" value="Locate Root"/>').appendTo(element);
