@@ -3253,6 +3253,13 @@ div.gradient-box {
 .profiler .ico {
   padding-left: 5px;
   padding-right: 5px;
+  cursor: pointer;
+  pointer-events: auto;
+  color: lightgray;
+}
+.profiler .disable {
+  pointer-events: none;
+  color: gray;
 }
 .profiler .left-panel {
   height: 100%;
@@ -3268,15 +3275,6 @@ div.gradient-box {
 .profiler .left-panel .hide-tabs #search-bar {
   display: inline;
   float: right;
-}
-.profiler .left-panel .hide-tabs #search-bar .ico {
-  cursor: pointer;
-  pointer-events: auto;
-  color: lightgray;
-}
-.profiler .left-panel .hide-tabs #search-bar .disable {
-  pointer-events: none;
-  color: gray;
 }
 .profiler .left-panel .hide-tabs .tab-content {
   height: 100%;
@@ -3306,9 +3304,17 @@ div.gradient-box {
 .profiler .left-panel table thead td {
   font-weight: bold;
 }
-.profiler .left-panel table thead .sort-count,
-.profiler .left-panel table thead .sort-size {
+.profiler .left-panel table #actions {
+  padding-right: 3px;
+}
+.profiler .left-panel table #actions .ico {
   cursor: pointer;
+  pointer-events: auto;
+  color: lightgray;
+}
+.profiler .left-panel table #actions .disable {
+  pointer-events: none;
+  color: gray;
 }
 .profiler .left-panel table tr:hover {
   background-color: #272727;
@@ -3328,12 +3334,6 @@ div.gradient-box {
   padding: 3px 30px 3px 1px;
   overflow: hidden;
   white-space: nowrap;
-}
-.profiler .left-panel table td .locate {
-  cursor: pointer;
-  font-size: 12pt;
-  text-align: center;
-  vertical-align: text-top;
 }
 .profiler .right-panel {
   height: 100%;
@@ -3402,13 +3402,6 @@ div.gradient-box {
   border-width: 5px;
   height: 100px;
   padding-top: 20px;
-}
-.profiler .right-panel .drop-zone .icon {
-  text-align: center;
-  font-size: 30pt;
-  margin: 0;
-  font-weight: bold;
-  pointer-events: none;
 }
 .profiler .right-panel .drop-zone .label {
   text-align: center;

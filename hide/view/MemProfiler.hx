@@ -1,7 +1,7 @@
 package hide.view;
 
+#if (hashlink >= "1.15.0")
 class MemProfiler extends hide.ui.View<{}> {
-	#if (hashlink >= "1.15.0")
 	public var analyzer : hlmem.Analyzer = null;
 	var hlPath = "";
 	var dumpPaths : Array<String> = [];
@@ -26,7 +26,6 @@ class MemProfiler extends hide.ui.View<{}> {
 				<div class="title">Files input</div>
 				<div class="files-input">
 					<div class="drop-zone hidden">
-						<p class="icon">+</p>
 						<p class="label">Drop .hl and .dump files here</p>
 					</div>
 					<div class="inputs">
@@ -185,13 +184,13 @@ class MemProfiler extends hide.ui.View<{}> {
 		currentFilter = f;
 		if( analyzer == null || analyzer.getMainMemory() == null )
 			return;
-		showInfo("Setting filter to " + currentFilter.getName(), true);
+		showInfo('Setting filter to ${currentFilter.getName()}...', true);
 		haxe.Timer.delay(() -> {
 			var mainMemory = analyzer.getMainMemory();
 			mainMemory.filterMode = currentFilter;
 			mainMemory.buildFilteredBlocks();
 			refresh();
-			showInfo("Filter set to " + currentFilter.getName());
+			showInfo('Filter set to ${currentFilter.getName()}.');
 		}, 1);
 	}
 
@@ -323,12 +322,18 @@ class MemProfiler extends hide.ui.View<{}> {
 		inspectView.open(tstr);
 	}
 
-	#end
+	public function inspectRemoveParent( pstr : String ) {
+		var mainMemory = analyzer.getMainMemory();
+		var ptype = mainMemory.resolveType(pstr);
+		if( inspectView.ttype != null && ptype != null ) {
+			mainMemory.removeParent(inspectView.ttype, ptype);
+			showInfo('Removed parents ${StringTools.htmlEscape(ptype.toString())} for blocks ${StringTools.htmlEscape(inspectView.ttypeName)}.');
+		}
+	}
 
 	static var _ = hide.ui.View.register(MemProfiler);
 }
 
-#if (hashlink >= "1.15.0")
 class MemProfilerSearchBar extends hide.comp.Component {
 	var profiler : MemProfiler;
 	public var searchHistory : Array<String> = [];
@@ -365,7 +370,7 @@ class MemProfilerSearchBar extends hide.comp.Component {
 		if( searchHistoryIndex < searchHistory.length )
 			searchInput.val(searchHistory[searchHistoryIndex]);
 		searchPrev.toggleClass("disable", searchHistoryIndex >= searchHistory.length - 1);
-		searchNext.toggleClass("disable", searchHistoryIndex == 0);
+		searchNext.toggleClass("disable", searchHistoryIndex <= 0);
 	}
 }
 
@@ -394,8 +399,8 @@ class MemProfilerSummaryView extends hide.comp.Component {
 
 class MemProfilerInspectView extends hide.comp.Component {
 	var profiler : MemProfiler;
-	var ttype : hlmem.TType;
-	var ttypeName : String;
+	public var ttype : hlmem.TType;
+	public var ttypeName : String;
 	var locateRootBtn : Element;
 	var locateRootTable : MemProfilerTable;
 	public function new( profiler : MemProfiler ) {
@@ -425,7 +430,7 @@ class MemProfilerInspectView extends hide.comp.Component {
 		var locateTable = new MemProfilerTable(profiler, "Locate", data, 10);
 		locateTable.element.appendTo(element);
 		var data = mainMemory.parents(ttype);
-		var parentsTable = new MemProfilerTable(profiler, "Parents", data, 5);
+		var parentsTable = new MemProfilerTable(profiler, "Parents", data, 5, true);
 		parentsTable.element.appendTo(element);
 		var data = mainMemory.subs(ttype);
 		var subsTable = new MemProfilerTable(profiler, "Subs", data, 5);
@@ -446,20 +451,23 @@ class MemProfilerTable extends hide.comp.Component {
 	var profiler : MemProfiler;
 	var title : String;
 	var data : hlmem.Result.BlockStats;
+	var allowRemoveParent : Bool;
 	var currentLine : Int;
 	var expandBtn : Element;
-	public function new( profiler : MemProfiler, title : String, data : hlmem.Result.BlockStats, maxLine : Int ) {
+	public function new( profiler : MemProfiler, title : String, data : hlmem.Result.BlockStats, maxLine : Int, allowRemoveParent : Bool = false ) {
 		super(null, null);
 		this.profiler = profiler;
 		this.title = title;
 		this.data = data;
 		this.currentLine = 0;
+		this.allowRemoveParent = allowRemoveParent;
 		element = new Element('
 		<table rules=none>
 			<caption>${title} (${data.allT.length})</caption>
 			<thead>
-				<td class="sort-count">Count</td>
-				<td class="sort-size">Size</td>
+				<td></td>
+				<td>Count</td>
+				<td>Size</td>
 				<td>Name</td>
 			</thead>
 			<tbody>
@@ -469,7 +477,6 @@ class MemProfilerTable extends hide.comp.Component {
 		var size = (maxLine > 0 && maxLine < data.allT.length) ? maxLine : data.allT.length;
 		expand(size);
 	}
-
 	public function expand( size : Int ) {
 		if( expandBtn != null )
 			expandBtn.remove();
@@ -484,6 +491,9 @@ class MemProfilerTable extends hide.comp.Component {
 			var l = data.allT[i];
 			var child = new MemProfilerTableLine(profiler, l);
 			child.element.appendTo(body);
+			child.addAction("ico-map-marker", "locate", element -> profiler.openInspectTab("#" + element.tl[0]));
+			if( allowRemoveParent )
+				child.addAction("ico-remove", "remove parent", element -> profiler.inspectRemoveParent("#" + element.tl[0]));
 		}
 		currentLine = maxLine;
 		var delta = data.allT.length - currentLine;
@@ -497,6 +507,7 @@ class MemProfilerTable extends hide.comp.Component {
 class MemProfilerTableLine extends hide.comp.Component {
 	var profiler : MemProfiler;
 	var data : hlmem.Result.BlockStatsElement;
+	var actions : Element;
 	public function new( profiler : MemProfiler, el : hlmem.Result.BlockStatsElement ) {
 		super(null, null);
 		this.profiler = profiler;
@@ -505,19 +516,19 @@ class MemProfilerTableLine extends hide.comp.Component {
 		var title = el.getName(false);
 		element = new Element('
 		<tr tabindex="2">
+			<td id="actions"></td>
 			<td>${el.count}</td>
 			<td>${hlmem.Analyzer.mb(el.size)}</td>
 			<td title="${title}">
-				<i class="locate icon ico ico-map-marker"></i>
 				${StringTools.htmlEscape(name)}
 			</td>
 		</tr>'
 		);
-		var btn = element.find('.locate');
-		btn.on('click', (e) -> locate());
+		actions = element.find("#actions");
 	}
-	public function locate() {
-		profiler.openInspectTab("#" + data.tl[0]);
+	public function addAction( icon : String, description : String, onClick : hlmem.Result.BlockStatsElement -> Void ) {
+		var btn = new Element('<i class="ico ${icon}" title="${description}"></i>').appendTo(actions);
+		btn.on('click', (e) -> onClick(data));
 	}
 }
 

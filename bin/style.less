@@ -3783,6 +3783,13 @@ div.gradient-box {
 	.ico {
 		padding-left: 5px;
 		padding-right: 5px;
+		cursor: pointer;
+		pointer-events: auto;
+		color: lightgray;
+	}
+	.disable {
+		pointer-events: none;
+		color: gray;
 	}
 
 	.left-panel {
@@ -3798,15 +3805,6 @@ div.gradient-box {
 			#search-bar {
 				display: inline;
 				float: right;
-				.ico {
-					cursor: pointer;
-					pointer-events: auto;
-					color: lightgray;
-				}
-				.disable {
-					pointer-events: none;
-					color: gray;
-				}
 			}
 			.tab-content {
 				height: 100%;
@@ -3839,9 +3837,18 @@ div.gradient-box {
 				td {
 					font-weight: bold;
 				}
+			}
 
-				.sort-count, .sort-size {
+			#actions {
+				padding-right: 3px;
+				.ico {
 					cursor: pointer;
+					pointer-events: auto;
+					color: lightgray;
+				}
+				.disable {
+					pointer-events: none;
+					color: gray;
 				}
 			}
 
@@ -3869,13 +3876,6 @@ div.gradient-box {
 				padding: 3px 30px 3px 1px;
 				overflow: hidden;
 				white-space: nowrap;
-
-				.locate {
-					cursor: pointer;
-					font-size: 12pt;
-					text-align: center;
-					vertical-align: text-top;
-				}
 			}
 		}
 	}
@@ -3955,14 +3955,6 @@ div.gradient-box {
 			border-width: 5px;
 			height: 100px;
 			padding-top: 20px;
-
-			.icon {
-				text-align: center;
-				font-size: 30pt;
-				margin: 0;
-				font-weight: bold;
-				pointer-events: none;
-			}
 
 			.label {
 				text-align: center;
