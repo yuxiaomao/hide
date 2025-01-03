@@ -3198,6 +3198,10 @@ div.gradient-box {
   height: 100%;
   display: flex;
 }
+.profiler .ico {
+  padding-left: 5px;
+  padding-right: 5px;
+}
 .profiler .left-panel {
   height: 100%;
   width: 80%;
@@ -3214,8 +3218,6 @@ div.gradient-box {
   float: right;
 }
 .profiler .left-panel .hide-tabs #search-bar .ico {
-  padding-left: 5px;
-  padding-right: 5px;
   cursor: pointer;
   pointer-events: auto;
   color: lightgray;
@@ -3265,9 +3267,10 @@ div.gradient-box {
 .profiler .left-panel table thead tr:hover {
   background-color: #151515;
 }
-.profiler .left-panel table td:nth-child(3) {
+.profiler .left-panel table td:nth-last-child(1) {
   width: 100%;
   max-width: 700px;
+  text-wrap: auto;
 }
 .profiler .left-panel table td {
   padding: 3px 30px 3px 1px;
@@ -3276,8 +3279,6 @@ div.gradient-box {
 }
 .profiler .left-panel table td .locate {
   cursor: pointer;
-  margin-right: 5px;
-  margin-left: 5px;
   font-size: 12pt;
   text-align: center;
   vertical-align: text-top;

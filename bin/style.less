@@ -3702,6 +3702,11 @@ div.gradient-box {
 	height: 100%;
 	display: flex;
 
+	.ico {
+		padding-left: 5px;
+		padding-right: 5px;
+	}
+
 	.left-panel {
 		height: 100%;
 		width: 80%;
@@ -3716,8 +3721,6 @@ div.gradient-box {
 				display: inline;
 				float: right;
 				.ico {
-					padding-left: 5px;
-					padding-right: 5px;
 					cursor: pointer;
 					pointer-events: auto;
 					color: lightgray;
@@ -3778,9 +3781,10 @@ div.gradient-box {
 				}
 			}
 
-			td:nth-child(3) {
+			td:nth-last-child(1) {
 				width: 100%;
 				max-width: 700px;
+				text-wrap: auto;
 			}
 
 			td {
@@ -3790,8 +3794,6 @@ div.gradient-box {
 
 				.locate {
 					cursor: pointer;
-					margin-right: 5px;
-					margin-left: 5px;
 					font-size: 12pt;
 					text-align: center;
 					vertical-align: text-top;

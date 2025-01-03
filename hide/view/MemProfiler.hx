@@ -15,11 +15,9 @@ class MemProfiler extends hide.ui.View<{}> {
 
 	public function new( ?state ) {
 		super(state);
-		trace("new"); // TODO remove
 	}
 
 	override function onDisplay() {
-		trace("onDisplay"); // TODO remove
 		new Element('
 		<div class="profiler">
 			<div class="left-panel">
@@ -173,7 +171,6 @@ class MemProfiler extends hide.ui.View<{}> {
 	}
 
 	override function onBeforeClose():Bool {
-		trace("onBeforeClose"); // TODO remove
 		clear();
 		return super.onBeforeClose();
 	}
@@ -188,20 +185,22 @@ class MemProfiler extends hide.ui.View<{}> {
 		currentFilter = f;
 		if( analyzer == null || analyzer.getMainMemory() == null )
 			return;
-		var mainMemory = analyzer.getMainMemory();
-		mainMemory.filterMode = currentFilter;
-		mainMemory.buildFilteredBlocks();
-		refresh();
-		showInfo("Filter set to " + f.getName());
+		showInfo("Setting filter to " + currentFilter.getName(), true);
+		haxe.Timer.delay(() -> {
+			var mainMemory = analyzer.getMainMemory();
+			mainMemory.filterMode = currentFilter;
+			mainMemory.buildFilteredBlocks();
+			refresh();
+			showInfo("Filter set to " + currentFilter.getName());
+		}, 1);
 	}
 
-	function showInfo( msg : String ) {
+	function showInfo( msg : String, loading : Bool = false ) {
 		var info = element.find(".info");
-		info.html('<p>${msg}</p>');
+		info.html(loading ? '<p>${msg}<i class="ico ico-spinner fa-spin"></i></p>' : '<p>${msg}</p>');
 	}
 
 	function clear() {
-		trace("clear"); // TODO remove
 		analyzer = null;
 		if( statsView != null )
 			statsView.remove();
@@ -218,21 +217,24 @@ class MemProfiler extends hide.ui.View<{}> {
 		try {
 			hlmem.Analyzer.useColor = false;
 			analyzer = new hlmem.Analyzer();
-			analyzer.loadBytecode(hlPath);
-			showInfo("Bytecode loaded, loading dump...");
+			showInfo("Loading bytecode...", true);
 			haxe.Timer.delay(() -> {
-				for (i in 0...dumpPaths.length) {
-					analyzer.loadMemoryDump(dumpPaths[i]);
-				}
-				showInfo("Memory dump loaded, building hierarchy...");
+				analyzer.loadBytecode(hlPath);
+				showInfo("Bytecode loaded, loading dump...", true);
 				haxe.Timer.delay(() -> {
-					analyzer.build(currentFilter);
-					showInfo("Hierarchy built.");
+					for (i in 0...dumpPaths.length) {
+						analyzer.loadMemoryDump(dumpPaths[i]);
+					}
+					showInfo("Memory dump loaded, building hierarchy...", true);
 					haxe.Timer.delay(() -> {
-						onDone(true);
+						analyzer.build(currentFilter);
+						showInfo("Hierarchy built.");
+						haxe.Timer.delay(() -> {
+							onDone(true);
+						}, 0);
 					}, 0);
 				}, 0);
-			}, 0);
+			}, 1);
 		} catch(e) {
 			Ide.inst.quickError(e);
 			analyzer = null;
@@ -413,9 +415,11 @@ class MemProfilerInspectView extends hide.comp.Component {
 		ttypeName = ttype.toString() + "#" + ttype.tid;
 		var ttypeStat = profiler.getTypeStat(ttype);
 		new Element('
-			<p>Type: ${StringTools.htmlEscape(ttypeName)}</p>
-			<p>Blocks count: ${ttypeStat == null ? 0 : ttypeStat.count}</p>
-			<p>Blocks size: ${ttypeStat == null ? 0 : ttypeStat.size}</p>
+			<table>
+				<tr><td>Type</td><td>${StringTools.htmlEscape(ttypeName)}</td></tr>
+				<tr><td>Blocks count</td><td>${ttypeStat == null ? 0 : ttypeStat.count}</td></tr>
+				<tr><td>Blocks size</td><td>${ttypeStat == null ? "0" : hlmem.Analyzer.mb(ttypeStat.size)}</td></tr>
+			</table>
 		').appendTo(element);
 		var data = mainMemory.locate(ttype);
 		var locateTable = new MemProfilerTable(profiler, "Locate", data, 10);
@@ -498,13 +502,13 @@ class MemProfilerTableLine extends hide.comp.Component {
 		this.profiler = profiler;
 		this.data = el;
 		var name = el.getName();
-		var title = name.length > 200 ? el.getName(false) : name;
+		var title = el.getName(false);
 		element = new Element('
 		<tr tabindex="2">
 			<td>${el.count}</td>
 			<td>${hlmem.Analyzer.mb(el.size)}</td>
 			<td title="${title}">
-				<div class="locate icon ico ico-map-marker"></div>
+				<i class="locate icon ico ico-map-marker"></i>
 				${StringTools.htmlEscape(name)}
 			</td>
 		</tr>'
