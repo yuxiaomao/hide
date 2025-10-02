@@ -2911,6 +2911,10 @@ div.sp-container input:hover {
 .collision-editor dt input {
   width: 100%;
 }
+.collision-editor dd .flags-container,
+.collision-editor dt .flags-container {
+  display: inline-flex;
+}
 .collision-editor dt {
   text-align: right;
   font-size: 11px;

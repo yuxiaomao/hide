@@ -352,6 +352,9 @@ class Model extends FileView {
 								<div class="collision-editor">
 								</div>
 							</div>
+							<fancy-button class="quiet btn-add-collision" title="Add Collision">
+								<div class="ico ico-plus"></div>
+							</fancy-button>
 						</div>
 					</div>
 				</div>
@@ -465,9 +468,9 @@ class Model extends FileView {
 				if( settingsArr.length == 1 ) {
 					var settings = settingsArr[0];
 					switch ( settings.mode ) {
-						case Default: collide = {};
+						case Default if( settings.params?.flags ?? 1 == 1 ): collide = {};
 						case None: collide = { collide : null };
-						case Auto, Mesh, Shapes: collide = { collide : [settings.params] };
+						case Default, Auto, Mesh, Shapes: collide = { collide : [settings.params] };
 						default: throw "Unexpected collision mode";
 					}
 				} else {
@@ -960,8 +963,53 @@ class Model extends FileView {
 			var collisionEditor = element.find(".collision-editor");
 			new Element('<label class="title">Collision settings</label>').appendTo(collisionEditor);
 			collisionList = new hide.comp.FancyArray(collisionEditor, null, "Collision settings", "CollisionSettings");
+			var btnAddCollision = element.find(".btn-add-collision");
+				btnAddCollision.on("click", (e) -> {
+					if( collisionList?.insertItem != null )
+						collisionList.insertItem(0);
+			});
+			collisionList.element.on("contextmenu", function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				var newParamCtxMenu : Array<hide.comp.ContextMenu.MenuItem> = [
+					{ label : "New", click : () -> collisionList.insertItem(0) },
+				];
+				hide.comp.ContextMenu.createFromEvent(e.originalEvent, newParamCtxMenu);
+			});
 			collisionList.getItems = function() {
-				return collisionSettings.get(modelName);
+				var cachedArr = collisionSettings.get(modelName);
+				if( cachedArr != null )
+					return cachedArr;
+
+				var settingsArr = [];
+				collisionSettings.set(modelName, settingsArr);
+				var dirPath = @:privateAccess hmd.lib.resource.entry.directory;
+				var resName = @:privateAccess hmd.lib.resource.name;
+				var props = @:privateAccess h3d.prim.ModelDatabase.current.getModelData(dirPath, resName, modelName);
+				if ( props != null && Reflect.hasField(props, "collide") ) {
+					var collideFields = Reflect.field(props, "collide");
+					if( collideFields == null )
+						settingsArr.push(new CollisionSettings(None, null));
+					else if( collideFields != null && Std.isOfType(collideFields, Array) ) {
+						for( cf in (collideFields:Array<Dynamic>) ) {
+							var mode = Default;
+							if( cf == null )
+								mode = None;
+							else if( Reflect.field(cf, "useDefault") )
+								mode = Default;
+							else if( Reflect.hasField(cf, "precision") )
+								mode = Auto;
+							else if( Reflect.hasField(cf, "mesh") )
+								mode = Mesh;
+							else if( Reflect.hasField(cf, "shapes") )
+								mode = Shapes;
+							settingsArr.push(new CollisionSettings(mode, cf));
+						}
+					}
+				}
+				if( settingsArr.length == 0 )
+					settingsArr.push(new CollisionSettings(Default, { useDefault : true, flags : 1 }));
+				return settingsArr;
 			};
 			collisionList.getItemName = function( item : CollisionSettings ) {
 				var settingsArr = collisionSettings.get(modelName);
@@ -985,7 +1033,7 @@ class Model extends FileView {
 				var settingsArr = collisionSettings.get(modelName);
 				var settings = settingsArr[index];
 				if( index == 0 )
-					settingsArr[0] = new CollisionSettings(Default, { useDefault : true });
+					settingsArr[0] = new CollisionSettings(Default, { useDefault : true, flags : 1 });
 				else
 					settingsArr.remove(settings);
 				collisionList.refresh();
@@ -997,7 +1045,7 @@ class Model extends FileView {
 							settingsArr.insert(index, settings);
 					else
 						if( index == 0 )
-							settingsArr[0] = new CollisionSettings(Default, { useDefault : true });
+							settingsArr[0] = new CollisionSettings(Default, { useDefault : true, flags : 1 });
 						else
 							settingsArr.remove(settings);
 					collisionList.refresh();
@@ -1012,12 +1060,20 @@ class Model extends FileView {
 							meshList.push(m.name);
 					}
 				}
+				var flagsConfig : Array<String> = config.get("collide.groups", ["Collider"]);
 				var collisionParams = new Element('<div class="collision-params">
 					<div class="collision-param collision-all"><dl><dt>Collision mode</dt><dd>
 						<select class="select-collision-mode">
 							${[for(idx in 0...CollisionMode.Count) '<option value="${idx}">${cast(idx, CollisionMode).toString()}</option>'].join("")}
 						</select>
 					</dl></div>
+					<div class="collision-param collision-all"><dl><dt>Flags</dt><dd>
+						<div class="flags-container">
+							${[for(i in 0...flagsConfig.length)
+								( i % 8 == 0 && i != 0 ? '</div><div class="flags-container">' : '') + '<input type="checkbox" class="flag" title="${flagsConfig[i]}"/>'
+							].join("")}
+						</div>
+					</dd></dl></div>
 					<div class="collision-param collision-auto"><dl><dt>Precision</dt><dd><input type="text" class="precision"/></dd></dl></div>
 					<div class="collision-param collision-auto"><dl><dt>Max convex hulls</dt><dd><input type="text" class="hulls"/></dd></dl></div>
 					<div class="collision-param collision-auto"><dl><dt>Max subdivision</dt><dd><input type="text" class="subdiv"/></dd></dl></div>
@@ -1030,6 +1086,7 @@ class Model extends FileView {
 					<div class="collision-param collision-shapes collision-shape-editor"></div>
 				</div>');
 				var elMode = collisionParams.find(".select-collision-mode");
+				var elFlags = [for( e in collisionParams.find(".flag") ) new Element(e)];
 				var elPrec = collisionParams.find(".precision");
 				var elHull = collisionParams.find(".hulls");
 				var elSubdiv = collisionParams.find(".subdiv");
@@ -1054,6 +1111,10 @@ class Model extends FileView {
 					}
 					elMode.val(settings.mode);
 					var params = settings.params ?? {};
+					var flags = params.flags ?? 0;
+					for( i in 0...elFlags.length ) {
+						elFlags[i].prop("checked", flags & (1 << i) != 0);
+					}
 					elPrec.val('${params.precision ?? 1.0}');
 					elHull.val('${params.maxConvexHulls ?? 1}');
 					elSubdiv.val('${params.maxSubdiv ?? 32}');
@@ -1073,6 +1134,12 @@ class Model extends FileView {
 					var meshName = elMesh.val();
 					var curMode = Std.parseInt(elMode.val());
 					var curParams = {};
+					var checkedFlags = 0;
+					for( i in 0...elFlags.length ) {
+						if( elFlags[i].is(":checked") )
+							checkedFlags |= 1 << i;
+					}
+					Reflect.setField(curParams, "flags", checkedFlags);
 					switch( curMode ) {
 						case Default:
 							Reflect.setField(curParams, "useDefault", true);

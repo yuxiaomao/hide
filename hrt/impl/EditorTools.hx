@@ -18,7 +18,7 @@ class EditorIcon extends hrt.prefab.l3d.Billboard.BillboardObj {
 		super.sync(ctx);
 	}
 
-	override function getLocalCollider():h3d.col.Collider {
+	override function getLocalCollider( group = 0 ) : h3d.col.Collider {
 		return new h3d.col.Sphere(0, 0, 0, billboardScale / 2.0);
 	}
 
