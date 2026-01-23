@@ -32,7 +32,7 @@ class IfCondition extends ShaderNode {
 
 		var test = makeIf(cond, vTrue, vFalse, null, outType);
 
-		var v : TVar = {name: "output", id: Tools.allocVarId(), type: outType, kind: Local};
+		var v = new TVar(Tools.allocVarId(), "output", outType, Local);
 		var tmpvar = makeVarDecl(v, test);
 		ctx.addExpr(tmpvar);
 		ctx.setOutput(0, makeVar(v));

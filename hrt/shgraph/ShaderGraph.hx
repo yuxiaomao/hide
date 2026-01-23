@@ -537,12 +537,7 @@ class ShaderGraph extends hrt.prefab.Prefab {
 
 			var functionName : String = EnumValueTools.getName(fnKind).toLowerCase();
 
-			var funcVar : TVar = {
-				name : functionName,
-				id : Tools.allocVarId(),
-				kind : Function,
-				type : TFun([{ ret : TVoid, args : [] }])
-			};
+			var funcVar = new TVar(Tools.allocVarId(), functionName, TFun([{ ret : TVoid, args : [] }]), Function);
 
 			var fn : TFunction = {
 				ret: TVoid, kind: fnKind,
@@ -628,12 +623,7 @@ class ShaderGraph extends hrt.prefab.Prefab {
 		}
 
 		if (__init__exprs.length != 0) {
-			var funcVar : TVar = {
-				name : "__init__",
-				id : Tools.allocVarId(),
-				kind : Function,
-				type : TFun([{ ret : TVoid, args : [] }])
-			};
+			var funcVar = new TVar(Tools.allocVarId(), "__init__", TFun([{ ret : TVoid, args : [] }]), Function);
 
 			var fn : TFunction = {
 				ret : TVoid, kind : Init,
@@ -688,13 +678,7 @@ class ShaderGraph extends hrt.prefab.Prefab {
 	public var parametersAvailable : Map<Int, Parameter> = [];
 
 	function generateParameter(name : String, type : Type) : TVar {
-		return {
-				parent: null,
-				id: 0,
-				kind:Param,
-				name: name,
-				type: type
-			};
+		return new TVar(0, name, type, Param);
 	}
 
 	public function getParameter(id : Int) {

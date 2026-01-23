@@ -38,25 +38,13 @@ class CustomVarChooser extends hide.comp.Component {
 			textInput.val(initialName);
 		}
 		if( initialName != null && initialName != "" && initialType != null ) {
-			variable = {
-				parent: null,
-				id: 0,
-				kind: Local,
-				name: initialName,
-				type: availableTypes[select.val()],
-			};
+			variable = new TVar(0, initialName, availableTypes[select.val()], Local);
 		}
 		function changedFun(_) {
 			var name = textInput.val();
 			if( name == "" )
 				return;
-			variable = {
-				parent: null,
-				id: 0,
-				kind: Local,
-				name: name,
-				type: availableTypes[select.val()],
-			};
+			variable = new TVar(0, name, availableTypes[select.val()], Local);
 			onChange(variable);
 		}
 		select.on("change", changedFun);

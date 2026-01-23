@@ -115,11 +115,11 @@ class NodeGenContext {
 	}
 
 	public function getGlobalParam(name: String, type: Type) : TExpr {
-		return makeVar(MapUtils.getOrPut(globalVars, name, {v: {id: hxsl.Ast.Tools.allocVarId(), name: name, type: type, kind: Param}, defValue:null, __init__: null}).v);
+		return makeVar(MapUtils.getOrPut(globalVars, name, {v: new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(),name, type, Param), defValue:null, __init__: null}).v);
 	}
 
 	public function setGlobalCustomOutput(name: String, expr: TExpr) : Void {
-		var v = makeVar(MapUtils.getOrPut(globalVars, name, {v: {id: hxsl.Ast.Tools.allocVarId(), name: name, type: expr.t, kind: Param}, defValue:null, __init__: null}).v);
+		var v = makeVar(MapUtils.getOrPut(globalVars, name, {v: new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(), name, expr.t, Param), defValue:null, __init__: null}).v);
 		expressions.push(makeAssign(v, expr));
 	}
 
@@ -129,7 +129,7 @@ class NodeGenContext {
 		var variable = MapUtils.getOrPut(shaderVariables, id, {
 			var varId = hxsl.Ast.Tools.allocVarId();
 			var name = if (graphVar.isGlobal) graphVar.name else '_local_${graphVar.name}_$varId';
-			{variable: {id: varId, name: name, type: type, kind: Local}, isInit: false}
+			{variable: new hxsl.Ast.TVar(varId, name, type, Local), isInit: false}
 		});
 		if (init != null && !variable.isInit) {
 			variable.isInit = true;
@@ -157,7 +157,7 @@ class NodeGenContext {
 			default:
 		}
 
-		var v : TVar = {id: hxsl.Ast.Tools.allocVarId(), name: tvar.name, type: type, kind: tvar.kind, qualifiers: tvar.qualifiers};
+		var v = new TVar(hxsl.Ast.Tools.allocVarId(), tvar.name, type, tvar.kind, null, tvar.qualifiers);
 		def = {v:v, defValue: null, __init__: null};
 		if (tvar.parent != null) {
 			v.parent = getOrAllocateFromTVar(tvar.parent);
@@ -187,7 +187,7 @@ class NodeGenContext {
 				var fullName = Variables.getFullPath(global);
 				var def : ShaderGraph.ExternVarDef = globalVars.get(fullName);
 				if (def == null) {
-					var v : TVar = {id: hxsl.Ast.Tools.allocVarId(), name: global.name, type: global.type, kind: kind};
+					var v = new TVar(hxsl.Ast.Tools.allocVarId(), global.name, global.type, kind);
 					var __init__ = null;
 					if (global.__init__ != null) {
 						__init__ = AstTools.makeAssign(AstTools.makeVar(v), global.__init__);
@@ -197,7 +197,7 @@ class NodeGenContext {
 						var p = Variables.Globals[parent];
 						switch (p.varkind) {
 							case KVar(kind, _, _):
-								v.parent = MapUtils.getOrPut(globalVars, Variables.getFullPath(p), {v : {id : hxsl.Ast.Tools.allocVarId(), name: p.name, type: TStruct([]), kind: kind}, defValue: null, __init__: null}).v;
+								v.parent = MapUtils.getOrPut(globalVars, Variables.getFullPath(p), {v : new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(), p.name, TStruct([]), kind), defValue: null, __init__: null}).v;
 							default:
 								throw "Parent var must be a KVar";
 						}

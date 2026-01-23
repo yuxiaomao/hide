@@ -31,12 +31,7 @@ class CustomSerializer extends hxsl.Serializer {
 			return null;
 		var v = varMap.get(id);
 		if( v != null ) return v;
-		v = {
-			id : id,
-			name : readString(),
-			type : null,
-			kind : null,
-		}
+		v = new TVar(id, readString(), null, null);
 		varMap.set(id, v);
 		v.type = readType();
 		v.kind = hxsl.Serializer.VKINDS[input.readByte()];
@@ -204,14 +199,7 @@ class ShaderNodeHxsl extends ShaderNode {
 							var outputId = cache.idOutputOrder.get(v.id);
 							var t = ctx.getType(cache.outputs[outputId].type);
 
-							var outputVar : TVar= {
-								name: v.name,
-								id: hxsl.Ast.Tools.allocVarId(),
-								type: t,
-								kind: v.kind,
-								parent: v.parent,
-								qualifiers: v.qualifiers,
-							};
+							var outputVar = new TVar(hxsl.Ast.Tools.allocVarId(), v.name, t, v.kind, v.parent, v.qualifiers);
 							replacement = makeVar(outputVar);
 							outputs[outputId] = outputVar;
 						case null:
@@ -236,23 +224,13 @@ class ShaderNodeHxsl extends ShaderNode {
 				case TVarDecl(v, init):
 					var tvar = MapUtils.getOrPut(varsRemap, v.id,
 						{
-							name: v.name,
-							id: hxsl.Ast.Tools.allocVarId(),
-							type: v.type,
-							kind: v.kind,
-							parent: v.parent,
-							qualifiers: v.qualifiers,
+							new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(), v.name, v.type, v.kind, v.parent, v.qualifiers);
 						});
 					return makeExpr(TVarDecl(tvar, if( init != null ) patch(init) else null), e.t);
 				case TFor(v, it, loop):
 					var tvar = MapUtils.getOrPut(varsRemap, v.id,
 						{
-							name: v.name,
-							id: hxsl.Ast.Tools.allocVarId(),
-							type: v.type,
-							kind: v.kind,
-							parent: v.parent,
-							qualifiers: v.qualifiers,
+							new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(), v.name, v.type, v.kind, v.parent, v.qualifiers);
 						});
 					return makeExpr(TFor(tvar, patch(it), patch(loop)), e.t);
 				default:
@@ -270,24 +248,14 @@ class ShaderNodeHxsl extends ShaderNode {
 				var fun = fun.fun;
 				var tvar = MapUtils.getOrPut(varsRemap, fun.ref.id,
 				{
-					name: '${fun.ref.name}_$id',
-					id: hxsl.Ast.Tools.allocVarId(),
-					type: fun.ref.type,
-					kind: fun.ref.kind,
-					parent: fun.ref.parent,
-					qualifiers: fun.ref.qualifiers,
+					new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(), '${fun.ref.name}_$id', fun.ref.type, fun.ref.kind, fun.ref.parent, fun.ref.qualifiers);
 				});
 
 				var args : Array<TVar> = [];
 				for (arg in fun.args) {
 					var tvar = MapUtils.getOrPut(varsRemap, arg.id,
 					{
-						name: arg.name,
-						id: hxsl.Ast.Tools.allocVarId(),
-						type: arg.type,
-						kind: arg.kind,
-						parent: arg.parent,
-						qualifiers: arg.qualifiers,
+						new hxsl.Ast.TVar(hxsl.Ast.Tools.allocVarId(), arg.name, arg.type, arg.kind, arg.parent, arg.qualifiers);
 					});
 					args.push(tvar);
 				}
